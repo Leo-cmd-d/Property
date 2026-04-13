@@ -4,226 +4,521 @@ from typing import List
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 st.set_page_config(
-    page_title="Dashboard de Cobro Variable a Inquilinos",
-    page_icon="📊",
+    page_title="PN",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# Paleta Futurista: cyberpunk + tech
 COLORS = {
-    "navy": "#12284C",
-    "gold": "#FFB71B",
-    "black": "#1D1D1B",
-    "blue_gray": "#7A97AB",
-    "light_gray": "#DADADA",
-    "white": "#FFFFFF",
+    "bg_dark": "#0a0e27",      # Fondo oscuro profundo
+    "bg_darker": "#050912",    # Fondo más oscuro
+    "neon_cyan": "#00f0ff",    # Cian neón
+    "neon_magenta": "#ff00ff", # Magenta neón
+    "neon_purple": "#b000ff",  # Púrpura neón
+    "neon_green": "#00ff88",   # Verde neón
+    "neon_pink": "#ff0080",    # Rosa neón
+    "dark_cyan": "#005f7f",    # Cyan oscuro
+    "dark_magenta": "#5f0080", # Magenta oscuro
+    "white": "#ffffff",
+    "gray_dark": "#1a1f3a",    # Gris tech
+    "gray_medium": "#2d3561",  # Gris medio tech
 }
 
 st.markdown(
     f"""
     <style>
     :root {{
-        --navy: {COLORS["navy"]};
-        --gold: {COLORS["gold"]};
-        --black: {COLORS["black"]};
-        --blue-gray: {COLORS["blue_gray"]};
-        --light-gray: {COLORS["light_gray"]};
+        --bg-dark: {COLORS["bg_dark"]};
+        --bg-darker: {COLORS["bg_darker"]};
+        --neon-cyan: {COLORS["neon_cyan"]};
+        --neon-magenta: {COLORS["neon_magenta"]};
+        --neon-purple: {COLORS["neon_purple"]};
+        --neon-green: {COLORS["neon_green"]};
+        --neon-pink: {COLORS["neon_pink"]};
+        --dark-cyan: {COLORS["dark_cyan"]};
+        --dark-magenta: {COLORS["dark_magenta"]};
         --white: {COLORS["white"]};
-        --sky: {COLORS["blue_gray"]};
-        --orange: {COLORS["gold"]};
-        --green: {COLORS["navy"]};
-        --peach: {COLORS["light_gray"]};
-        --dark-green: {COLORS["black"]};
-        --red: {COLORS["gold"]};
+        --gray-dark: {COLORS["gray_dark"]};
+        --gray-medium: {COLORS["gray_medium"]};
     }}
 
-    html, body, [class*="css"]  {{
-        font-family: "Neo Sans Pro", "Helvetica Neue LT Std", "Helvetica Neue", Arial, sans-serif;
-        color: var(--black);
+    * {{
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }}
+
+    html, body, [class*="css"] {{
+        font-family: 'Courier New', 'Courier', monospace;
+        color: var(--neon-cyan);
+        background: var(--bg-dark);
+        letter-spacing: 0.05em;
+        line-height: 1.6;
     }}
 
     .stApp {{
-        background: linear-gradient(180deg, rgba(218,218,218,0.22) 0%, rgba(255,255,255,1) 30%);
+        background: var(--bg-dark);
+        background-image: 
+            repeating-linear-gradient(
+                0deg,
+                rgba(0, 240, 255, 0.03) 0px,
+                rgba(0, 240, 255, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
     }}
 
+    /* Sidebar futurista */
+    [data-testid="stSidebar"] {{
+        background: var(--bg-darker);
+        border-right: 2px solid var(--neon-cyan);
+        box-shadow: -10px 0 40px rgba(0, 240, 255, 0.2);
+    }}
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {{
+        padding: 1.5rem 1rem;
+    }}
+
+    /* Header principal futurista */
     .main-title {{
-        background: linear-gradient(135deg, var(--navy) 0%, var(--blue-gray) 100%);
-        color: white;
-        padding: 1.2rem 1.5rem;
-        border-radius: 18px;
-        margin-bottom: 1rem;
-        box-shadow: 0 8px 24px rgba(18,40,76,0.15);
+        background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(0, 240, 255, 0.1) 100%);
+        color: var(--neon-cyan);
+        padding: 3rem 2rem;
+        margin: -1rem -1rem 2rem -1rem;
+        letter-spacing: 0.1em;
+        border-bottom: 3px solid var(--neon_magenta);
+        border-top: 3px solid var(--neon-cyan);
+        box-shadow: 
+            0 0 20px rgba(0, 240, 255, 0.3),
+            inset 0 0 20px rgba(0, 240, 255, 0.05);
+        position: relative;
+    }}
+
+    .main-title::before {{
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
     }}
 
     .main-title h1 {{
         margin: 0;
-        font-size: 2rem;
+        font-size: 2.8rem;
         font-weight: 700;
+        letter-spacing: 0.15em;
+        text-shadow: 0 0 20px rgba(0, 240, 255, 0.5), 0 0 40px rgba(255, 0, 255, 0.3);
+        text-transform: uppercase;
     }}
 
     .main-title p {{
-        margin: 0.35rem 0 0 0;
-        opacity: 0.95;
+        margin: 0.8rem 0 0 0;
+        opacity: 0.9;
         font-size: 1rem;
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        color: var(--neon-green);
     }}
 
+    /* Tarjetas futuristas */
     .card {{
-        background: white;
-        border: 1px solid rgba(18,40,76,0.08);
-        border-radius: 18px;
-        padding: 1rem 1.1rem;
-        box-shadow: 0 8px 24px rgba(18,40,76,0.08);
-        margin-bottom: 0.7rem;
+        background: linear-gradient(135deg, rgba(26, 31, 58, 0.5) 0%, rgba(45, 53, 97, 0.3) 100%);
+        border: 2px solid var(--neon-cyan);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 
+            0 0 20px rgba(0, 240, 255, 0.2),
+            inset 0 0 20px rgba(0, 240, 255, 0.05);
+        position: relative;
+        overflow: hidden;
     }}
 
+    .card::before {{
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+        animation: scan 8s linear infinite;
+    }}
+
+    .card:hover {{
+        border-color: var(--neon_magenta);
+        box-shadow: 
+            0 0 40px rgba(255, 0, 255, 0.4),
+            inset 0 0 20px rgba(255, 0, 255, 0.1);
+        transition: all 0.3s ease;
+    }}
+
+    @keyframes scan {{
+        0% {{ left: -100%; }}
+        100% {{ left: 100%; }}
+    }}
+
+    /* Etiquetas de sección */
     .section-label {{
-        color: var(--navy);
-        font-size: 1.05rem;
+        color: var(--neon_magenta);
+        font-size: 1.1rem;
         font-weight: 700;
-        margin-bottom: 0.5rem;
-        margin-top: 0.3rem;
+        margin-bottom: 1.5rem;
+        margin-top: 2rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        border-bottom: 2px solid var(--neon-cyan);
+        border-top: 1px solid rgba(0, 240, 255, 0.3);
+        padding: 0.8rem 0;
+        display: inline-block;
+        text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+        position: relative;
     }}
 
+    .section-label::after {{
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--neon-cyan), var(--neon_magenta), var(--neon_purple));
+        animation: shimmer 3s linear infinite;
+    }}
+
+    @keyframes shimmer {{
+        0% {{ background-position: -1000px 0; }}
+        100% {{ background-position: 1000px 0; }}
+    }}
+
+    /* Mini tarjetas para métricas */
     .mini-card {{
-        background: #fff;
-        border: 1px solid rgba(18,40,76,0.08);
-        border-radius: 16px;
-        padding: 0.9rem 1rem;
-        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
-        margin-bottom: 0.6rem;
-        min-height: 112px;
+        background: linear-gradient(135deg, rgba(26, 31, 58, 0.6) 0%, rgba(45, 53, 97, 0.4) 100%);
+        border: 2px solid var(--dark-cyan);
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        min-height: 110px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }}
+
+    .mini-card::before {{
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at top right, rgba(0, 240, 255, 0.1), transparent);
+        pointer-events: none;
+    }}
+
+    .mini-card:hover {{
+        border-color: var(--neon-cyan);
+        box-shadow: 
+            0 0 30px rgba(0, 240, 255, 0.3),
+            inset 0 0 20px rgba(0, 240, 255, 0.1);
     }}
 
     .mini-card .kicker {{
-        color: var(--blue-gray);
-        font-size: 0.82rem;
+        color: var(--neon-green);
+        font-size: 0.75rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin-bottom: 0.35rem;
+        letter-spacing: 0.15em;
+        margin-bottom: 0.6rem;
     }}
 
     .mini-card .value {{
-        color: var(--navy);
-        font-size: 1.35rem;
-        font-weight: 800;
+        color: var(--neon-cyan);
+        font-size: 1.6rem;
+        font-weight: 700;
         line-height: 1.1;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.3rem;
         word-break: break-word;
+        letter-spacing: -0.02em;
+        text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
     }}
 
     .mini-card .sub {{
-        color: #5a5a5a;
-        font-size: 0.86rem;
+        color: rgba(0, 240, 255, 0.7);
+        font-size: 0.85rem;
+        font-weight: 400;
     }}
 
+    /* Métricas de Streamlit */
     div[data-testid="stMetric"] {{
-        background: white;
-        border: 1px solid rgba(18,40,76,0.08);
-        padding: 0.9rem;
-        border-radius: 18px;
-        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
+        background: linear-gradient(135deg, rgba(26, 31, 58, 0.5) 0%, rgba(45, 53, 97, 0.3) 100%);
+        border: 2px solid var(--neon-cyan);
+        padding: 1.2rem;
+        border-radius: 0;
+        box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
     }}
 
+    /* Nota informativa */
     .note {{
-        font-size: 0.92rem;
-        color: #4f4f4f;
-        background: rgba(122,151,171,0.10);
-        padding: 0.8rem 1rem;
-        border-radius: 14px;
-        border-left: 5px solid var(--gold);
+        font-size: 0.95rem;
+        color: var(--neon-green);
+        background: linear-gradient(135deg, rgba(0, 255, 136, 0.05) 0%, rgba(0, 240, 255, 0.05) 100%);
+        padding: 1rem 1.2rem;
+        border-left: 4px solid var(--neon-green);
+        border-right: 1px solid rgba(0, 255, 136, 0.3);
+        margin: 1.5rem 0;
+        font-weight: 500;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.1);
     }}
 
+    /* Badges */
     .ok-badge {{
         display: inline-block;
-        background: rgba(155,184,60,0.15);
-        color: var(--dark-green);
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.85rem;
+        background: rgba(0, 255, 136, 0.15);
+        color: var(--neon-green);
+        padding: 0.35rem 0.8rem;
+        font-size: 0.8rem;
         font-weight: 700;
-        margin-right: 0.4rem;
+        margin-right: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(0, 255, 136, 0.4);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3), inset 0 0 10px rgba(0, 255, 136, 0.1);
     }}
 
     .warn-badge {{
         display: inline-block;
-        background: rgba(255,183,27,0.18);
-        color: var(--navy);
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.85rem;
+        background: rgba(255, 0, 128, 0.15);
+        color: var(--neon-pink);
+        padding: 0.35rem 0.8rem;
+        font-size: 0.8rem;
         font-weight: 700;
-        margin-right: 0.4rem;
+        margin-right: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(255, 0, 128, 0.4);
+        box-shadow: 0 0 10px rgba(255, 0, 128, 0.3), inset 0 0 10px rgba(255, 0, 128, 0.1);
     }}
 
     .small {{
-        font-size: 0.88rem;
-        color: #4d4d4d;
+        font-size: 0.85rem;
+        color: rgba(0, 240, 255, 0.7);
+        font-weight: 400;
     }}
 
+    /* Tarjetas delta */
     .delta-card {{
-        background: #fff;
-        border: 1px solid rgba(18,40,76,0.08);
-        border-radius: 16px;
-        padding: 0.95rem 1rem;
-        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
-        margin-bottom: 0.6rem;
-        min-height: 138px;
+        background: linear-gradient(135deg, rgba(26, 31, 58, 0.6) 0%, rgba(45, 53, 97, 0.4) 100%);
+        border: 2px solid var(--neon-purple);
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        min-height: 135px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }}
+
+    .delta-card::before {{
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at center, rgba(176, 0, 255, 0.1), transparent);
+        pointer-events: none;
+    }}
+
+    .delta-card:hover {{
+        border-color: var(--neon_magenta);
+        box-shadow: 
+            0 0 30px rgba(255, 0, 255, 0.3),
+            inset 0 0 20px rgba(255, 0, 255, 0.1);
     }}
 
     .delta-card .kicker {{
-        color: var(--blue-gray);
-        font-size: 0.82rem;
+        color: var(--neon-green);
+        font-size: 0.75rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin-bottom: 0.35rem;
+        letter-spacing: 0.15em;
+        margin-bottom: 0.6rem;
     }}
 
     .delta-card .value {{
-        color: var(--navy);
-        font-size: 1.28rem;
-        font-weight: 800;
+        color: var(--neon-cyan);
+        font-size: 1.5rem;
+        font-weight: 700;
         line-height: 1.1;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.5rem;
         word-break: break-word;
+        letter-spacing: -0.02em;
+        text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
     }}
 
     .delta-pill {{
         display: inline-block;
-        padding: 0.28rem 0.62rem;
-        border-radius: 999px;
-        font-size: 0.84rem;
-        font-weight: 800;
-        margin-bottom: 0.45rem;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border: 1px solid transparent;
     }}
 
     .delta-positive {{
-        background: rgba(22, 163, 74, 0.16);
-        color: #166534;
+        background: rgba(0, 255, 136, 0.2);
+        color: var(--neon-green);
+        border-color: rgba(0, 255, 136, 0.4);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
     }}
 
     .delta-warning {{
-        background: rgba(245, 158, 11, 0.18);
-        color: #92400e;
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffc107;
+        border-color: rgba(255, 193, 7, 0.4);
+        box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
     }}
 
     .delta-negative {{
-        background: rgba(220, 38, 38, 0.14);
-        color: #991b1b;
+        background: rgba(255, 0, 128, 0.2);
+        color: var(--neon-pink);
+        border-color: rgba(255, 0, 128, 0.4);
+        box-shadow: 0 0 10px rgba(255, 0, 128, 0.3);
     }}
 
     .delta-neutral {{
-        background: rgba(122,151,171,0.16);
-        color: var(--navy);
+        background: rgba(0, 240, 255, 0.1);
+        color: var(--neon-cyan);
+        border-color: rgba(0, 240, 255, 0.3);
+        box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
     }}
 
     .delta-card .sub {{
-        color: #5a5a5a;
-        font-size: 0.84rem;
+        color: rgba(0, 240, 255, 0.7);
+        font-size: 0.8rem;
+        font-weight: 400;
+    }}
+
+    /* Tabs */
+    [data-baseweb="tab"] {{
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        color: var(--neon-cyan);
+    }}
+
+    /* Selectores y filtros */
+    [data-baseweb="select"] {{
+        font-size: 0.9rem;
+    }}
+
+    input[type="text"],
+    input[type="number"],
+    select {{
+        border: 2px solid var(--neon-cyan) !important;
+        background: var(--bg-darker) !important;
+        color: var(--neon-cyan) !important;
+        font-size: 0.9rem;
+        font-family: 'Courier New', monospace;
+        padding: 0.6rem !important;
+        box-shadow: 0 0 10px rgba(0, 240, 255, 0.2) !important;
+    }}
+
+    input[type="text"]::placeholder,
+    input[type="number"]::placeholder {{
+        color: rgba(0, 240, 255, 0.5) !important;
+    }}
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus {{
+        border-color: var(--neon_magenta) !important;
+        box-shadow: 0 0 20px rgba(255, 0, 255, 0.4) !important;
+    }}
+
+    /* Botones */
+    .stButton > button {{
+        background: linear-gradient(135deg, var(--dark-cyan) 0%, var(--dark-magenta) 100%);
+        color: var(--neon-cyan);
+        border: 2px solid var(--neon-cyan);
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        padding: 0.6rem 1.2rem;
+        box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }}
+
+    .stButton > button:hover {{
+        background: linear-gradient(135deg, var(--dark-magenta) 0%, var(--dark-cyan) 100%);
+        border-color: var(--neon_magenta);
+        box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+    }}
+
+    /* DataFrames */
+    [data-testid="stDataFrame"] {{
+        font-size: 0.9rem;
+    }}
+
+    .stDataFrame {{
+        background: linear-gradient(135deg, rgba(26, 31, 58, 0.5) 0%, rgba(45, 53, 97, 0.3) 100%);
+    }}
+
+    /* Expanders */
+    [data-testid="stExpander"] {{
+        border: 2px solid var(--neon-cyan);
+        background: rgba(26, 31, 58, 0.5);
+        box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }}
+
+    /* Info y Warning */
+    [data-testid="stAlert"] {{
+        padding: 1rem;
+        border-radius: 0;
+        border-left: 4px solid var(--neon-cyan);
+        background: linear-gradient(135deg, rgba(0, 240, 255, 0.1) 0%, rgba(0, 240, 255, 0.05) 100%);
+        box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }}
+
+    /* Scrollbar futurista */
+    ::-webkit-scrollbar {{
+        width: 10px;
+        height: 10px;
+    }}
+
+    ::-webkit-scrollbar-track {{
+        background: var(--bg-darker);
+    }}
+
+    ::-webkit-scrollbar-thumb {{
+        background: linear-gradient(180deg, var(--neon-cyan), var(--neon_magenta));
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }}
+
+    ::-webkit-scrollbar-thumb:hover {{
+        background: linear-gradient(180deg, var(--neon_magenta), var(--neon-cyan));
+        box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }}
+
+    /* Líneas de escaneo animadas */
+    @keyframes flicker {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.8; }}
+    }}
+
+    /* Efecto glow en texto */
+    .stMarkdown {{
+        color: var(--neon-cyan);
     }}
     </style>
     """,
@@ -389,29 +684,34 @@ def build_download(df: pd.DataFrame) -> bytes:
 
 def style_plot(fig):
     fig.update_layout(
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(family='"Neo Sans Pro", "Helvetica Neue LT Std", Arial, sans-serif', color=COLORS["black"]),
+        paper_bgcolor=COLORS["bg_dark"],
+        plot_bgcolor="rgba(5, 9, 18, 0.5)",
+        font=dict(family="'Courier New', 'Courier', monospace", color=COLORS["neon_cyan"], size=10),
         legend_title_text="",
-        margin=dict(l=20, r=20, t=50, b=20),
+        margin=dict(l=50, r=20, t=60, b=50),
+        hovermode="x unified",
     )
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="rgba(18,40,76,0.10)")
-    if getattr(fig.layout.xaxis.title, "text", None) == "PERIODO_LABEL":
-        fig.update_xaxes(title_text="Periodo")
-    if getattr(fig.layout.yaxis.title, "text", None) == "PERIODO_LABEL":
-        fig.update_yaxes(title_text="Periodo")
+    fig.update_xaxes(showgrid=False, linecolor=COLORS["neon_cyan"], linewidth=1.5, zeroline=False)
+    fig.update_yaxes(gridcolor=f"rgba(0, 240, 255, 0.1)", linecolor=COLORS["neon_cyan"], linewidth=1.5, zeroline=False)
+    
+    # Renombrar trazas y asignar colores
     for trace in getattr(fig, "data", []):
         if getattr(trace, "name", None) == "CICLO_1_PASAJEROS":
             trace.name = "Ciclo 2"
+            trace.marker.color = COLORS["neon_cyan"]
         elif getattr(trace, "name", None) == "CICLO_2_VENTAS":
             trace.name = "Ciclo 3"
+            trace.marker.color = COLORS["neon_magenta"]
         elif getattr(trace, "name", None) == "ALQUILER_VAR_PASAJEROS":
             trace.name = "Cobro por pasajeros"
+            trace.line.color = COLORS["neon_cyan"]
         elif getattr(trace, "name", None) == "ALQUILER_VAR_VENTAS":
             trace.name = "Cobro por ventas"
+            trace.line.color = COLORS["neon_magenta"]
         elif getattr(trace, "name", None) == "TOTAL_COBRO_CALCULADO":
             trace.name = "Total cobrado"
+            trace.line.color = COLORS["neon_green"]
+    
     return fig
 
 
@@ -430,12 +730,12 @@ def render_info_card(title: str, value: str, subtitle: str = ""):
 
 def classify_variation(delta_pct: float) -> tuple[str, str, str]:
     if pd.isna(delta_pct):
-        return "Sin base comparable", "delta-neutral", "•"
+        return "Sin base comparable", "delta-neutral", "–"
     if delta_pct >= 0:
-        return "Crecimiento", "delta-positive", "▲"
+        return "Crecimiento", "delta-positive", "↑"
     if delta_pct > -10:
-        return "Caída leve", "delta-warning", "▼"
-    return "Caída fuerte", "delta-negative", "▼"
+        return "Caída leve", "delta-warning", "↓"
+    return "Caída fuerte", "delta-negative", "↓↓"
 
 
 def render_variation_card(title: str, value: str, badge_text: str, badge_class: str, subtitle: str = ""):
@@ -611,10 +911,81 @@ def build_variation_display_table(variation_df: pd.DataFrame, labels_map: dict) 
     ]]
 
 
+def create_year_bridge_chart(compare_summary: pd.DataFrame) -> go.Figure:
+    ordered = compare_summary.sort_values("PERIODO_ANIO").reset_index(drop=True)
+    if len(ordered) < 2:
+        return go.Figure()
+
+    base_year = int(ordered.iloc[-2]["PERIODO_ANIO"])
+    compare_year = int(ordered.iloc[-1]["PERIODO_ANIO"])
+
+    base_total = float(ordered.iloc[-2]["TOTAL_COBRO_CALCULADO"])
+    delta_pasajeros = float(ordered.iloc[-1]["ALQUILER_VAR_PASAJEROS"] - ordered.iloc[-2]["ALQUILER_VAR_PASAJEROS"])
+    delta_ventas = float(ordered.iloc[-1]["ALQUILER_VAR_VENTAS"] - ordered.iloc[-2]["ALQUILER_VAR_VENTAS"])
+    final_total = float(ordered.iloc[-1]["TOTAL_COBRO_CALCULADO"])
+
+    fig = go.Figure(
+        go.Waterfall(
+            name="Puente de valor",
+            orientation="v",
+            measure=["absolute", "relative", "relative", "total"],
+            x=[
+                f"Total {base_year}",
+                "Δ cobro pasajeros",
+                "Δ cobro ventas",
+                f"Total {compare_year}",
+            ],
+            y=[base_total, delta_pasajeros, delta_ventas, final_total],
+            text=[
+                format_currency(base_total),
+                format_metric_delta(delta_pasajeros, "ALQUILER_VAR_PASAJEROS"),
+                format_metric_delta(delta_ventas, "ALQUILER_VAR_VENTAS"),
+                format_currency(final_total),
+            ],
+            textposition="outside",
+            connector={"line": {"color": "rgba(255,255,255,0.25)", "width": 1}},
+            increasing={"marker": {"color": COLORS["neon_green"]}},
+            decreasing={"marker": {"color": COLORS["neon_pink"]}},
+            totals={"marker": {"color": COLORS["neon_cyan"]}},
+        )
+    )
+    fig.update_layout(
+        title=f"Puente de valor: {base_year} vs {compare_year}",
+        showlegend=False,
+        yaxis_title="Valor",
+    )
+    return fig
+
+
+def build_year_comparison_narrative(compare_summary: pd.DataFrame) -> str:
+    ordered = compare_summary.sort_values("PERIODO_ANIO").reset_index(drop=True)
+    if len(ordered) < 2:
+        return ""
+
+    base_year = int(ordered.iloc[-2]["PERIODO_ANIO"])
+    compare_year = int(ordered.iloc[-1]["PERIODO_ANIO"])
+
+    delta_total = float(ordered.iloc[-1]["TOTAL_COBRO_CALCULADO"] - ordered.iloc[-2]["TOTAL_COBRO_CALCULADO"])
+    delta_pasajeros = float(ordered.iloc[-1]["ALQUILER_VAR_PASAJEROS"] - ordered.iloc[-2]["ALQUILER_VAR_PASAJEROS"])
+    delta_ventas = float(ordered.iloc[-1]["ALQUILER_VAR_VENTAS"] - ordered.iloc[-2]["ALQUILER_VAR_VENTAS"])
+
+    tendencia_total = "creció" if delta_total > 0 else "cayó" if delta_total < 0 else "se mantuvo estable"
+    impacto_principal = "cobro por ventas" if abs(delta_ventas) >= abs(delta_pasajeros) else "cobro por pasajeros"
+    direccion_principal = delta_ventas if abs(delta_ventas) >= abs(delta_pasajeros) else delta_pasajeros
+    verbo_principal = "aumentó" if direccion_principal > 0 else "disminuyó" if direccion_principal < 0 else "se mantuvo estable"
+
+    return (
+        f"Entre {base_year} y {compare_year}, el total cobrado {tendencia_total} "
+        f"en {format_currency(abs(delta_total)) if delta_total != 0 else format_currency(0)}. "
+        f"El mayor efecto vino del {impacto_principal}, que {verbo_principal}."
+    )
+
+
+# Header principal
 st.markdown(
     """
     <div class="main-title">
-        <h1>Dashboard de Cobro Variable a Inquilinos</h1>
+        <h1>Dashboard de Cobro Variable</h1>
         <p>Visualización de ciclo 2 (pasajeros) y ciclo 3 (ventas) con validación de acuerdos y comportamiento mensual.</p>
     </div>
     """,
@@ -637,8 +1008,8 @@ uploaded_file = st.sidebar.file_uploader("Sube el archivo CSV", type=["csv"])
 st.sidebar.markdown(
     """
     <div class="small">
-    Tipografía declarada en CSS: <b>Neo Sans Pro</b> y <b>Helvetica Neue LT Std</b>.<br>
-    Si el equipo no las tiene instaladas, el navegador usará una fuente de respaldo similar.
+    Tipografía del sistema: -apple-system, BlinkMacSystemFont, Segoe UI.<br>
+    Estilos premium inspirados en Genesis.
     </div>
     """,
     unsafe_allow_html=True,
@@ -764,8 +1135,8 @@ with tab1:
                 title="Cobro mensual por componente",
                 labels={"PERIODO_LABEL": "Periodo", "VALOR": "Valor", "COMPONENTE": "Componente"},
                 color_discrete_map={
-                    "Ciclo 2 - Pasajeros": COLORS["navy"],
-                    "Ciclo 3 - Ventas": COLORS["gold"],
+                    "Ciclo 2 - Pasajeros": COLORS["neon_cyan"],
+                    "Ciclo 3 - Ventas": COLORS["neon_magenta"],
                 },
             )
             st.plotly_chart(style_plot(fig), use_container_width=True)
@@ -779,9 +1150,9 @@ with tab1:
                 title="Comparativo mensual: base pasajeros vs ventas vs cobro final",
                 labels={"PERIODO_LABEL": "Periodo", "value": "Valor", "variable": "Componente"},
                 color_discrete_map={
-                    "ALQUILER_VAR_PASAJEROS": COLORS["blue_gray"],
-                    "ALQUILER_VAR_VENTAS": COLORS["gold"],
-                    "TOTAL_COBRO_CALCULADO": COLORS["black"],
+                    "ALQUILER_VAR_PASAJEROS": COLORS["gray_medium"],
+                    "ALQUILER_VAR_VENTAS": COLORS["neon_magenta"],
+                    "TOTAL_COBRO_CALCULADO": COLORS["neon_green"],
                 },
             )
             st.plotly_chart(style_plot(fig2), use_container_width=True)
@@ -825,28 +1196,27 @@ with tab1:
                     title="Comparativo por año del mismo mes seleccionado",
                     labels={"ANIO_LABEL": "Año", "VALOR": "Valor", "COMPONENTE": "Componente"},
                     color_discrete_map={
-                        "Ciclo 2": COLORS["navy"],
-                        "Ciclo 3": COLORS["gold"],
-                        "Total cobrado": COLORS["black"],
+                        "Ciclo 2": COLORS["neon_cyan"],
+                        "Ciclo 3": COLORS["neon_magenta"],
+                        "Total cobrado": COLORS["neon_green"],
                     },
                 )
                 st.plotly_chart(style_plot(fig_compare_1), use_container_width=True)
 
             with g2:
-                fig_compare_2 = px.line(
-                    compare_summary_tab1,
-                    x="ANIO_LABEL",
-                    y=["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS", "TOTAL_COBRO_CALCULADO"],
-                    markers=True,
-                    title="Base pasajeros vs ventas vs cobro final por año",
-                    labels={"ANIO_LABEL": "Año", "value": "Valor", "variable": "Componente"},
-                    color_discrete_map={
-                        "ALQUILER_VAR_PASAJEROS": COLORS["blue_gray"],
-                        "ALQUILER_VAR_VENTAS": COLORS["gold"],
-                        "TOTAL_COBRO_CALCULADO": COLORS["black"],
-                    },
-                )
+                fig_compare_2 = create_year_bridge_chart(compare_summary_tab1)
                 st.plotly_chart(style_plot(fig_compare_2), use_container_width=True)
+
+            narrative_text = build_year_comparison_narrative(compare_summary_tab1)
+            if narrative_text:
+                st.markdown(
+                    f"""
+                    <div class="note">
+                        <b>Lectura ejecutiva:</b> {narrative_text}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
             compare_labels_tab1 = {
                 "CICLO_1_PASAJEROS": "Ciclo 2",
@@ -974,8 +1344,8 @@ with tab2:
                 title=f"Cobros mes a mes de {selected_cliente_tab}",
                 labels={"PERIODO_LABEL": "Periodo", "VALOR": "Valor", "TIPO_COBRO": "Tipo de cobro"},
                 color_discrete_map={
-                    "Cobro por pasajeros": COLORS["blue_gray"],
-                    "Cobro por ventas": COLORS["gold"],
+                    "Cobro por pasajeros": COLORS["neon_cyan"],
+                    "Cobro por ventas": COLORS["neon_magenta"],
                 },
             )
             st.plotly_chart(style_plot(fig_cliente), use_container_width=True)
@@ -989,9 +1359,9 @@ with tab2:
                 title="Ciclo 2, ciclo 3 y total cobrado",
                 labels={"PERIODO_LABEL": "Periodo", "value": "Valor", "variable": "Componente"},
                 color_discrete_map={
-                    "CICLO_1_PASAJEROS": COLORS["navy"],
-                    "CICLO_2_VENTAS": COLORS["gold"],
-                    "TOTAL_COBRO_CALCULADO": COLORS["black"],
+                    "CICLO_1_PASAJEROS": COLORS["neon_cyan"],
+                    "CICLO_2_VENTAS": COLORS["neon_magenta"],
+                    "TOTAL_COBRO_CALCULADO": COLORS["neon_green"],
                 },
             )
             st.plotly_chart(style_plot(fig_total_cliente), use_container_width=True)
@@ -1004,7 +1374,7 @@ with tab2:
                 y="PASAJEROS",
                 title="Número de pasajeros por mes",
                 labels={"PERIODO_LABEL": "Periodo", "PASAJEROS": "Pasajeros"},
-                color_discrete_sequence=[COLORS["navy"]],
+                color_discrete_sequence=[COLORS["neon_cyan"]],
             )
             st.plotly_chart(style_plot(fig_pasajeros), use_container_width=True)
 
@@ -1018,7 +1388,7 @@ with tab2:
                 y="DIFERENCIA_VENTAS_MENOS_PASAJEROS",
                 title="Diferencia mensual: ventas - pasajeros",
                 labels={"PERIODO_LABEL": "Periodo", "DIFERENCIA_VENTAS_MENOS_PASAJEROS": "Diferencia ventas - pasajeros"},
-                color_discrete_sequence=[COLORS["gold"]],
+                color_discrete_sequence=[COLORS["neon_magenta"]],
             )
             st.plotly_chart(style_plot(fig_dif), use_container_width=True)
 
@@ -1081,27 +1451,69 @@ with tab2:
                     title=f"Comparativo anual del mismo mes para {selected_cliente_tab}",
                     labels={"ANIO_LABEL": "Año", "VALOR": "Valor", "COMPONENTE": "Componente"},
                     color_discrete_map={
-                        "Ciclo 2": COLORS["navy"],
-                        "Ciclo 3": COLORS["gold"],
-                        "Total cobrado": COLORS["black"],
+                        "Ciclo 2": COLORS["neon_cyan"],
+                        "Ciclo 3": COLORS["neon_magenta"],
+                        "Total cobrado": COLORS["neon_green"],
                     },
                 )
                 st.plotly_chart(style_plot(fig_compare_cliente_1), use_container_width=True)
 
             with h2:
-                fig_compare_cliente_2 = px.line(
-                    compare_cliente_summary,
-                    x="ANIO_LABEL",
-                    y=["PASAJEROS", "VENTA_REPORTADA"],
-                    markers=True,
-                    title="Pasajeros y venta reportada por año",
-                    labels={"ANIO_LABEL": "Año", "value": "Valor", "variable": "Indicador"},
-                    color_discrete_map={
-                        "PASAJEROS": COLORS["navy"],
-                        "VENTA_REPORTADA": COLORS["gold"],
-                    },
+                fig_compare_cliente_2 = make_subplots(specs=[[{"secondary_y": True}]])
+                fig_compare_cliente_2.add_trace(
+                    go.Bar(
+                        x=compare_cliente_summary["ANIO_LABEL"],
+                        y=compare_cliente_summary["PASAJEROS"],
+                        name="Pasajeros",
+                        marker_color=COLORS["neon_cyan"],
+                        text=compare_cliente_summary["PASAJEROS"].map(format_number),
+                        textposition="outside",
+                        opacity=0.85,
+                    ),
+                    secondary_y=False,
                 )
+                fig_compare_cliente_2.add_trace(
+                    go.Scatter(
+                        x=compare_cliente_summary["ANIO_LABEL"],
+                        y=compare_cliente_summary["VENTA_REPORTADA"],
+                        name="Venta reportada",
+                        mode="lines+markers+text",
+                        line=dict(color=COLORS["neon_magenta"], width=3),
+                        marker=dict(color=COLORS["neon_magenta"], size=9),
+                        text=compare_cliente_summary["VENTA_REPORTADA"].map(format_currency),
+                        textposition="top center",
+                    ),
+                    secondary_y=True,
+                )
+                fig_compare_cliente_2.update_layout(
+                    title="Pasajeros vs venta reportada por año",
+                    bargap=0.35,
+                )
+                fig_compare_cliente_2.update_xaxes(title_text="Año")
+                fig_compare_cliente_2.update_yaxes(title_text="Pasajeros", secondary_y=False)
+                fig_compare_cliente_2.update_yaxes(title_text="Venta reportada", secondary_y=True)
                 st.plotly_chart(style_plot(fig_compare_cliente_2), use_container_width=True)
+
+                if len(compare_cliente_summary) >= 2:
+                    base_row = compare_cliente_summary.sort_values("PERIODO_ANIO").iloc[-2]
+                    current_row = compare_cliente_summary.sort_values("PERIODO_ANIO").iloc[-1]
+                    delta_pas = current_row["PASAJEROS"] - base_row["PASAJEROS"]
+                    delta_venta = current_row["VENTA_REPORTADA"] - base_row["VENTA_REPORTADA"]
+                    pct_pas = (delta_pas / base_row["PASAJEROS"] * 100) if base_row["PASAJEROS"] else np.nan
+                    pct_venta = (delta_venta / base_row["VENTA_REPORTADA"] * 100) if base_row["VENTA_REPORTADA"] else np.nan
+
+                    resumen_pas = (
+                        f"Pasajeros {'subió' if delta_pas >= 0 else 'bajó'} {format_number(abs(delta_pas))}"
+                        + (f" ({pct_pas:+.1f}%)." if not pd.isna(pct_pas) else ".")
+                    )
+                    resumen_venta = (
+                        f" Venta reportada {'subió' if delta_venta >= 0 else 'bajó'} {format_currency(abs(delta_venta))}"
+                        + (f" ({pct_venta:+.1f}%)." if not pd.isna(pct_venta) else ".")
+                    )
+                    st.markdown(
+                        f"<div class='note'><b>Lectura ejecutiva:</b> {resumen_pas}{resumen_venta}</div>",
+                        unsafe_allow_html=True,
+                    )
 
             compare_labels_cliente = {
                 "CICLO_1_PASAJEROS": "Ciclo 2",
@@ -1195,7 +1607,7 @@ with tab3:
             barmode="group",
             title="Comparativo base por pasajeros vs componente por ventas",
             labels={"INQUILINO": "Inquilino", "VALOR": "Valor", "COMPONENTE": "Componente"},
-            color_discrete_map={"Base pasajeros": COLORS["blue_gray"], "Valor ventas": COLORS["gold"]},
+            color_discrete_map={"Base pasajeros": COLORS["neon_cyan"], "Valor ventas": COLORS["neon_magenta"]},
         )
         st.plotly_chart(style_plot(fig7), use_container_width=True)
 
