@@ -4,7 +4,9 @@ from typing import List
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 st.set_page_config(
     page_title="Dashboard de Cobro Variable a Inquilinos",
@@ -163,68 +165,6 @@ st.markdown(
         font-size: 0.88rem;
         color: #4d4d4d;
     }}
-
-    .delta-card {{
-        background: #fff;
-        border: 1px solid rgba(18,40,76,0.08);
-        border-radius: 16px;
-        padding: 0.95rem 1rem;
-        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
-        margin-bottom: 0.6rem;
-        min-height: 138px;
-    }}
-
-    .delta-card .kicker {{
-        color: var(--blue-gray);
-        font-size: 0.82rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin-bottom: 0.35rem;
-    }}
-
-    .delta-card .value {{
-        color: var(--navy);
-        font-size: 1.28rem;
-        font-weight: 800;
-        line-height: 1.1;
-        margin-bottom: 0.35rem;
-        word-break: break-word;
-    }}
-
-    .delta-pill {{
-        display: inline-block;
-        padding: 0.28rem 0.62rem;
-        border-radius: 999px;
-        font-size: 0.84rem;
-        font-weight: 800;
-        margin-bottom: 0.45rem;
-    }}
-
-    .delta-positive {{
-        background: rgba(22, 163, 74, 0.16);
-        color: #166534;
-    }}
-
-    .delta-warning {{
-        background: rgba(245, 158, 11, 0.18);
-        color: #92400e;
-    }}
-
-    .delta-negative {{
-        background: rgba(220, 38, 38, 0.14);
-        color: #991b1b;
-    }}
-
-    .delta-neutral {{
-        background: rgba(122,151,171,0.16);
-        color: var(--navy);
-    }}
-
-    .delta-card .sub {{
-        color: #5a5a5a;
-        font-size: 0.84rem;
-    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -278,6 +218,101 @@ def format_metric_delta(value: float, metric: str) -> str:
     if FORMAT_MAP.get(metric) == "currency":
         return format_currency(value)
     return ("-" if value < 0 else "") + format_number(abs(value))
+
+
+def classify_variation(delta_pct: float) -> tuple[str, str, str]:
+    if pd.isna(delta_pct):
+        return "Sin base comparable", "delta-neutral", "•"
+    if delta_pct >= 0:
+        return "Crecimiento", "delta-positive", "▲"
+    if delta_pct > -10:
+        return "Caída leve", "delta-warning", "▼"
+    return "Caída fuerte", "delta-negative", "▼"
+
+
+def render_variation_card(title: str, value: str, badge_text: str, badge_class: str, subtitle: str = ""):
+    st.markdown(
+        f"""
+        <div class="delta-card">
+            <div class="kicker">{title}</div>
+            <div class="value">{value}</div>
+            <div class="delta-pill {badge_class}">{badge_text}</div>
+            <div class="sub">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def create_year_bridge_chart(compare_summary: pd.DataFrame):
+    ordered = compare_summary.sort_values("PERIODO_ANIO").reset_index(drop=True)
+    if len(ordered) < 2:
+        return go.Figure()
+
+    base_year = int(ordered.iloc[-2]["PERIODO_ANIO"])
+    compare_year = int(ordered.iloc[-1]["PERIODO_ANIO"])
+
+    base_total = float(ordered.iloc[-2]["TOTAL_COBRO_CALCULADO"])
+    delta_pasajeros = float(ordered.iloc[-1]["ALQUILER_VAR_PASAJEROS"] - ordered.iloc[-2]["ALQUILER_VAR_PASAJEROS"])
+    delta_ventas = float(ordered.iloc[-1]["ALQUILER_VAR_VENTAS"] - ordered.iloc[-2]["ALQUILER_VAR_VENTAS"])
+    final_total = float(ordered.iloc[-1]["TOTAL_COBRO_CALCULADO"])
+
+    fig = go.Figure(
+        go.Waterfall(
+            name="Puente de valor",
+            orientation="v",
+            measure=["absolute", "relative", "relative", "total"],
+            x=[
+                f"Total {base_year}",
+                "Δ cobro pasajeros",
+                "Δ cobro ventas",
+                f"Total {compare_year}",
+            ],
+            y=[base_total, delta_pasajeros, delta_ventas, final_total],
+            text=[
+                format_currency(base_total),
+                format_metric_delta(delta_pasajeros, "ALQUILER_VAR_PASAJEROS"),
+                format_metric_delta(delta_ventas, "ALQUILER_VAR_VENTAS"),
+                format_currency(final_total),
+            ],
+            textposition="outside",
+            connector={"line": {"color": "rgba(18,40,76,0.25)", "width": 1}},
+            increasing={"marker": {"color": "#16a34a"}},
+            decreasing={"marker": {"color": "#dc2626"}},
+            totals={"marker": {"color": "#12284C"}},
+        )
+    )
+    fig.update_layout(
+        title=f"Puente de valor: {base_year} vs {compare_year}",
+        showlegend=False,
+        yaxis_title="Valor",
+    )
+    return fig
+
+
+def build_year_comparison_narrative(compare_summary: pd.DataFrame) -> str:
+    ordered = compare_summary.sort_values("PERIODO_ANIO").reset_index(drop=True)
+    if len(ordered) < 2:
+        return ""
+
+    base_year = int(ordered.iloc[-2]["PERIODO_ANIO"])
+    compare_year = int(ordered.iloc[-1]["PERIODO_ANIO"])
+
+    delta_total = float(ordered.iloc[-1]["TOTAL_COBRO_CALCULADO"] - ordered.iloc[-2]["TOTAL_COBRO_CALCULADO"])
+    delta_pasajeros = float(ordered.iloc[-1]["ALQUILER_VAR_PASAJEROS"] - ordered.iloc[-2]["ALQUILER_VAR_PASAJEROS"])
+    delta_ventas = float(ordered.iloc[-1]["ALQUILER_VAR_VENTAS"] - ordered.iloc[-2]["ALQUILER_VAR_VENTAS"])
+
+    tendencia_total = "creció" if delta_total > 0 else "cayó" if delta_total < 0 else "se mantuvo estable"
+    impacto_principal = "cobro por ventas" if abs(delta_ventas) >= abs(delta_pasajeros) else "cobro por pasajeros"
+    direccion_principal = delta_ventas if abs(delta_ventas) >= abs(delta_pasajeros) else delta_pasajeros
+    verbo_principal = "aumentó" if direccion_principal > 0 else "disminuyó" if direccion_principal < 0 else "se mantuvo estable"
+
+    return (
+        f"Entre {base_year} y {compare_year}, el total cobrado {tendencia_total} "
+        f"en {format_currency(abs(delta_total)) if delta_total != 0 else format_currency(0)}. "
+        f"El mayor efecto vino del {impacto_principal}, que {verbo_principal}."
+    )
+
 
 
 def validate_columns(df: pd.DataFrame) -> List[str]:
@@ -428,30 +463,6 @@ def render_info_card(title: str, value: str, subtitle: str = ""):
     )
 
 
-def classify_variation(delta_pct: float) -> tuple[str, str, str]:
-    if pd.isna(delta_pct):
-        return "Sin base comparable", "delta-neutral", "•"
-    if delta_pct >= 0:
-        return "Crecimiento", "delta-positive", "▲"
-    if delta_pct > -10:
-        return "Caída leve", "delta-warning", "▼"
-    return "Caída fuerte", "delta-negative", "▼"
-
-
-def render_variation_card(title: str, value: str, badge_text: str, badge_class: str, subtitle: str = ""):
-    st.markdown(
-        f"""
-        <div class="delta-card">
-            <div class="kicker">{title}</div>
-            <div class="value">{value}</div>
-            <div class="delta-pill {badge_class}">{badge_text}</div>
-            <div class="sub">{subtitle}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_month_filter(data: pd.DataFrame, label: str, key: str) -> pd.DataFrame:
     month_options = (
         data[["PERIODO_MES", "PERIODO_LABEL"]]
@@ -567,22 +578,24 @@ def render_variation_cards(variation_df: pd.DataFrame, labels_map: dict, section
         label = labels_map.get(row["Indicador"], row["Indicador"])
         delta_abs = row["Variación absoluta"]
         delta_pct = row["Variación %"]
-        status_text, badge_class, arrow = classify_variation(delta_pct)
+        delta_text = f"{delta_pct:+.1f}%"
+        if np.isnan(delta_pct):
+            delta_text = "Sin base comparable"
+        elif delta_abs >= 0:
+            delta_text = f"↑ {delta_text}"
+        else:
+            delta_text = f"↓ {delta_text}"
 
-        pct_text = "Sin base comparable" if pd.isna(delta_pct) else f"{arrow} {delta_pct:+.1f}%"
-        badge_text = status_text if pd.isna(delta_pct) else f"{status_text} | {pct_text}"
         subtitle = (
-            f"{int(row['Año comparado'])} vs {int(row['Año base'])} | Variación absoluta: {format_metric_delta(delta_abs, row['Indicador'])}"
-            if not pd.isna(delta_pct)
-            else f"{int(row['Año comparado'])} vs {int(row['Año base'])} | base del año anterior en cero"
+            f"vs {int(row['Año base'])}: {format_currency(delta_abs)}"
+            if not np.isnan(delta_pct)
+            else f"vs {int(row['Año base'])}: base en cero"
         )
         with metric_cols[idx]:
-            render_variation_card(
+            render_info_card(
                 label,
-                format_metric_value(row["Valor comparado"], row["Indicador"]),
-                badge_text,
-                badge_class,
-                subtitle,
+                format_currency(row["Valor comparado"]),
+                f"{int(row['Año comparado'])} | {delta_text} | {subtitle}"
             )
 
 
@@ -591,24 +604,14 @@ def build_variation_display_table(variation_df: pd.DataFrame, labels_map: dict) 
         return variation_df
 
     display = variation_df.copy()
-    display["Semáforo"] = display["Variación %"].map(lambda x: classify_variation(x)[0])
     display["Indicador"] = display["Indicador"].map(lambda x: labels_map.get(x, x))
-    display["Valor base"] = display.apply(lambda row: format_metric_value(row["Valor base"], row["Indicador"]), axis=1)
-    display["Valor comparado"] = display.apply(lambda row: format_metric_value(row["Valor comparado"], row["Indicador"]), axis=1)
-    display["Variación absoluta"] = display.apply(lambda row: format_metric_delta(row["Variación absoluta"], row["Indicador"]), axis=1)
+    display["Valor base"] = display["Valor base"].map(format_currency)
+    display["Valor comparado"] = display["Valor comparado"].map(format_currency)
+    display["Variación absoluta"] = display["Variación absoluta"].map(format_currency)
     display["Variación %"] = display["Variación %"].map(
         lambda x: "Sin base comparable" if pd.isna(x) else f"{x:+.1f}%"
     )
-    return display[[
-        "Indicador",
-        "Año base",
-        "Año comparado",
-        "Valor base",
-        "Valor comparado",
-        "Variación absoluta",
-        "Variación %",
-        "Semáforo",
-    ]]
+    return display
 
 
 st.markdown(
@@ -833,20 +836,19 @@ with tab1:
                 st.plotly_chart(style_plot(fig_compare_1), use_container_width=True)
 
             with g2:
-                fig_compare_2 = px.line(
-                    compare_summary_tab1,
-                    x="ANIO_LABEL",
-                    y=["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS", "TOTAL_COBRO_CALCULADO"],
-                    markers=True,
-                    title="Base pasajeros vs ventas vs cobro final por año",
-                    labels={"ANIO_LABEL": "Año", "value": "Valor", "variable": "Componente"},
-                    color_discrete_map={
-                        "ALQUILER_VAR_PASAJEROS": COLORS["blue_gray"],
-                        "ALQUILER_VAR_VENTAS": COLORS["gold"],
-                        "TOTAL_COBRO_CALCULADO": COLORS["black"],
-                    },
-                )
+                fig_compare_2 = create_year_bridge_chart(compare_summary_tab1)
                 st.plotly_chart(style_plot(fig_compare_2), use_container_width=True)
+
+            narrative_text = build_year_comparison_narrative(compare_summary_tab1)
+            if narrative_text:
+                st.markdown(
+                    f"""
+                    <div class="note">
+                        <b>Lectura ejecutiva:</b> {narrative_text}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
             compare_labels_tab1 = {
                 "CICLO_1_PASAJEROS": "Ciclo 2",
@@ -878,12 +880,11 @@ with tab1:
             st.dataframe(compare_table_tab1, use_container_width=True, hide_index=True)
 
             variation_display_tab1 = build_variation_display_table(variation_tab1, compare_labels_tab1)
-            if isinstance(variation_display_tab1, pd.DataFrame) and not variation_display_tab1.empty:
+            if not variation_display_tab1.empty:
                 st.dataframe(variation_display_tab1, use_container_width=True, hide_index=True)
 
 with tab2:
     st.markdown('<div class="section-label">Análisis mensual por cliente</div>', unsafe_allow_html=True)
-    variation_display_cliente = pd.DataFrame()
 
     selected_cliente_tab = st.selectbox(
         "Filtrar por inquilino",
@@ -1089,19 +1090,61 @@ with tab2:
                 st.plotly_chart(style_plot(fig_compare_cliente_1), use_container_width=True)
 
             with h2:
-                fig_compare_cliente_2 = px.line(
-                    compare_cliente_summary,
-                    x="ANIO_LABEL",
-                    y=["PASAJEROS", "VENTA_REPORTADA"],
-                    markers=True,
-                    title="Pasajeros y venta reportada por año",
-                    labels={"ANIO_LABEL": "Año", "value": "Valor", "variable": "Indicador"},
-                    color_discrete_map={
-                        "PASAJEROS": COLORS["navy"],
-                        "VENTA_REPORTADA": COLORS["gold"],
-                    },
+                fig_compare_cliente_2 = make_subplots(specs=[[{"secondary_y": True}]])
+                fig_compare_cliente_2.add_trace(
+                    go.Bar(
+                        x=compare_cliente_summary["ANIO_LABEL"],
+                        y=compare_cliente_summary["PASAJEROS"],
+                        name="Pasajeros",
+                        marker_color=COLORS["navy"],
+                        text=compare_cliente_summary["PASAJEROS"].map(format_number),
+                        textposition="outside",
+                        opacity=0.85,
+                    ),
+                    secondary_y=False,
                 )
+                fig_compare_cliente_2.add_trace(
+                    go.Scatter(
+                        x=compare_cliente_summary["ANIO_LABEL"],
+                        y=compare_cliente_summary["VENTA_REPORTADA"],
+                        name="Venta reportada",
+                        mode="lines+markers+text",
+                        line=dict(color=COLORS["gold"], width=3),
+                        marker=dict(color=COLORS["gold"], size=9),
+                        text=compare_cliente_summary["VENTA_REPORTADA"].map(format_currency),
+                        textposition="top center",
+                    ),
+                    secondary_y=True,
+                )
+                fig_compare_cliente_2.update_layout(
+                    title="Pasajeros vs venta reportada por año",
+                    bargap=0.35,
+                )
+                fig_compare_cliente_2.update_xaxes(title_text="Año")
+                fig_compare_cliente_2.update_yaxes(title_text="Pasajeros", secondary_y=False)
+                fig_compare_cliente_2.update_yaxes(title_text="Venta reportada", secondary_y=True)
                 st.plotly_chart(style_plot(fig_compare_cliente_2), use_container_width=True)
+
+                if len(compare_cliente_summary) >= 2:
+                    base_row = compare_cliente_summary.sort_values("PERIODO_ANIO").iloc[-2]
+                    current_row = compare_cliente_summary.sort_values("PERIODO_ANIO").iloc[-1]
+                    delta_pas = current_row["PASAJEROS"] - base_row["PASAJEROS"]
+                    delta_venta = current_row["VENTA_REPORTADA"] - base_row["VENTA_REPORTADA"]
+                    pct_pas = (delta_pas / base_row["PASAJEROS"] * 100) if base_row["PASAJEROS"] else np.nan
+                    pct_venta = (delta_venta / base_row["VENTA_REPORTADA"] * 100) if base_row["VENTA_REPORTADA"] else np.nan
+
+                    resumen_pas = (
+                        f"Pasajeros {'subió' if delta_pas >= 0 else 'bajó'} {format_number(abs(delta_pas))}"
+                        + (f" ({pct_pas:+.1f}%)." if not pd.isna(pct_pas) else ".")
+                    )
+                    resumen_venta = (
+                        f" Venta reportada {'subió' if delta_venta >= 0 else 'bajó'} {format_currency(abs(delta_venta))}"
+                        + (f" ({pct_venta:+.1f}%)." if not pd.isna(pct_venta) else ".")
+                    )
+                    st.markdown(
+                        f"<div class='note'><b>Lectura ejecutiva:</b> {resumen_pas}{resumen_venta}</div>",
+                        unsafe_allow_html=True,
+                    )
 
             compare_labels_cliente = {
                 "CICLO_1_PASAJEROS": "Ciclo 2",
@@ -1133,7 +1176,7 @@ with tab2:
             st.dataframe(compare_cliente_table, use_container_width=True, hide_index=True)
 
             variation_display_cliente = build_variation_display_table(variation_cliente, compare_labels_cliente)
-            if isinstance(variation_display_cliente, pd.DataFrame) and not variation_display_cliente.empty:
+            if not variation_display_cliente.empty:
                 st.dataframe(variation_display_cliente, use_container_width=True, hide_index=True)
 
 with tab3:
