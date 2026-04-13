@@ -1,0 +1,1304 @@
+import io
+from typing import List
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+st.set_page_config(
+    page_title="Dashboard de Cobro Variable a Inquilinos",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+COLORS = {
+    "navy": "#12284C",
+    "gold": "#FFB71B",
+    "black": "#1D1D1B",
+    "blue_gray": "#7A97AB",
+    "light_gray": "#DADADA",
+    "white": "#FFFFFF",
+}
+
+st.markdown(
+    f"""
+    <style>
+    :root {{
+        --navy: {COLORS["navy"]};
+        --gold: {COLORS["gold"]};
+        --black: {COLORS["black"]};
+        --blue-gray: {COLORS["blue_gray"]};
+        --light-gray: {COLORS["light_gray"]};
+        --white: {COLORS["white"]};
+        --sky: {COLORS["blue_gray"]};
+        --orange: {COLORS["gold"]};
+        --green: {COLORS["navy"]};
+        --peach: {COLORS["light_gray"]};
+        --dark-green: {COLORS["black"]};
+        --red: {COLORS["gold"]};
+    }}
+
+    html, body, [class*="css"]  {{
+        font-family: "Neo Sans Pro", "Helvetica Neue LT Std", "Helvetica Neue", Arial, sans-serif;
+        color: var(--black);
+    }}
+
+    .stApp {{
+        background: linear-gradient(180deg, rgba(218,218,218,0.22) 0%, rgba(255,255,255,1) 30%);
+    }}
+
+    .main-title {{
+        background: linear-gradient(135deg, var(--navy) 0%, var(--blue-gray) 100%);
+        color: white;
+        padding: 1.2rem 1.5rem;
+        border-radius: 18px;
+        margin-bottom: 1rem;
+        box-shadow: 0 8px 24px rgba(18,40,76,0.15);
+    }}
+
+    .main-title h1 {{
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+    }}
+
+    .main-title p {{
+        margin: 0.35rem 0 0 0;
+        opacity: 0.95;
+        font-size: 1rem;
+    }}
+
+    .card {{
+        background: white;
+        border: 1px solid rgba(18,40,76,0.08);
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 8px 24px rgba(18,40,76,0.08);
+        margin-bottom: 0.7rem;
+    }}
+
+    .section-label {{
+        color: var(--navy);
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        margin-top: 0.3rem;
+    }}
+
+    .mini-card {{
+        background: #fff;
+        border: 1px solid rgba(18,40,76,0.08);
+        border-radius: 16px;
+        padding: 0.9rem 1rem;
+        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
+        margin-bottom: 0.6rem;
+        min-height: 112px;
+    }}
+
+    .mini-card .kicker {{
+        color: var(--blue-gray);
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.35rem;
+    }}
+
+    .mini-card .value {{
+        color: var(--navy);
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 0.25rem;
+        word-break: break-word;
+    }}
+
+    .mini-card .sub {{
+        color: #5a5a5a;
+        font-size: 0.86rem;
+    }}
+
+    div[data-testid="stMetric"] {{
+        background: white;
+        border: 1px solid rgba(18,40,76,0.08);
+        padding: 0.9rem;
+        border-radius: 18px;
+        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
+    }}
+
+    .note {{
+        font-size: 0.92rem;
+        color: #4f4f4f;
+        background: rgba(122,151,171,0.10);
+        padding: 0.8rem 1rem;
+        border-radius: 14px;
+        border-left: 5px solid var(--gold);
+    }}
+
+    .ok-badge {{
+        display: inline-block;
+        background: rgba(155,184,60,0.15);
+        color: var(--dark-green);
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-right: 0.4rem;
+    }}
+
+    .warn-badge {{
+        display: inline-block;
+        background: rgba(255,183,27,0.18);
+        color: var(--navy);
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-right: 0.4rem;
+    }}
+
+    .small {{
+        font-size: 0.88rem;
+        color: #4d4d4d;
+    }}
+
+    .delta-card {{
+        background: #fff;
+        border: 1px solid rgba(18,40,76,0.08);
+        border-radius: 16px;
+        padding: 0.95rem 1rem;
+        box-shadow: 0 6px 20px rgba(18,40,76,0.06);
+        margin-bottom: 0.6rem;
+        min-height: 138px;
+    }}
+
+    .delta-card .kicker {{
+        color: var(--blue-gray);
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.35rem;
+    }}
+
+    .delta-card .value {{
+        color: var(--navy);
+        font-size: 1.28rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 0.35rem;
+        word-break: break-word;
+    }}
+
+    .delta-pill {{
+        display: inline-block;
+        padding: 0.28rem 0.62rem;
+        border-radius: 999px;
+        font-size: 0.84rem;
+        font-weight: 800;
+        margin-bottom: 0.45rem;
+    }}
+
+    .delta-positive {{
+        background: rgba(22, 163, 74, 0.16);
+        color: #166534;
+    }}
+
+    .delta-warning {{
+        background: rgba(245, 158, 11, 0.18);
+        color: #92400e;
+    }}
+
+    .delta-negative {{
+        background: rgba(220, 38, 38, 0.14);
+        color: #991b1b;
+    }}
+
+    .delta-neutral {{
+        background: rgba(122,151,171,0.16);
+        color: var(--navy);
+    }}
+
+    .delta-card .sub {{
+        color: #5a5a5a;
+        font-size: 0.84rem;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+REQUIRED_COLUMNS = [
+    "PERIODO_MES",
+    "ACUERDO_VENTAS",
+    "ACUERDO_IMMG",
+    "CONTRATO",
+    "INQUILINO",
+    "NOMENCLATURA",
+    "LOCAL",
+    "TASA_VENTAS",
+    "VENTA_REPORTADA",
+    "ALQUILER_VAR_VENTAS",
+    "TASA_PASAJEROS",
+    "PASAJEROS",
+    "ALQUILER_VAR_PASAJEROS",
+    "FACTURADO_VARIABLE",
+]
+
+
+def format_currency(value: float) -> str:
+    return f"${value:,.0f}".replace(",", ".")
+
+
+def format_number(value: float) -> str:
+    return f"{value:,.0f}".replace(",", ".")
+
+
+FORMAT_MAP = {
+    "TOTAL_COBRO_CALCULADO": "currency",
+    "CICLO_1_PASAJEROS": "currency",
+    "CICLO_2_VENTAS": "currency",
+    "ALQUILER_VAR_PASAJEROS": "currency",
+    "ALQUILER_VAR_VENTAS": "currency",
+    "FACTURADO_VARIABLE": "currency",
+    "VENTA_REPORTADA": "currency",
+    "PASAJEROS": "number",
+}
+
+
+def format_metric_value(value: float, metric: str) -> str:
+    if FORMAT_MAP.get(metric) == "currency":
+        return format_currency(value)
+    return format_number(value)
+
+
+def format_metric_delta(value: float, metric: str) -> str:
+    if FORMAT_MAP.get(metric) == "currency":
+        return format_currency(value)
+    return ("-" if value < 0 else "") + format_number(abs(value))
+
+
+def validate_columns(df: pd.DataFrame) -> List[str]:
+    return [col for col in REQUIRED_COLUMNS if col not in df.columns]
+
+
+@st.cache_data(show_spinner=False)
+def load_data(file) -> pd.DataFrame:
+    df = pd.read_csv(file)
+    df.columns = [str(c).strip().upper() for c in df.columns]
+
+    missing = validate_columns(df)
+    if missing:
+        raise ValueError(f"Faltan columnas obligatorias: {', '.join(missing)}")
+
+    df["PERIODO_MES"] = pd.to_datetime(df["PERIODO_MES"].astype(str), format="%Y-%m", errors="coerce")
+    if df["PERIODO_MES"].isna().any():
+        raise ValueError("La columna PERIODO_MES debe venir en formato YYYY-MM.")
+
+    numeric_cols = [
+        "ACUERDO_VENTAS",
+        "ACUERDO_IMMG",
+        "TASA_VENTAS",
+        "VENTA_REPORTADA",
+        "ALQUILER_VAR_VENTAS",
+        "TASA_PASAJEROS",
+        "PASAJEROS",
+        "ALQUILER_VAR_PASAJEROS",
+        "FACTURADO_VARIABLE",
+    ]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    text_cols = ["CONTRATO", "INQUILINO", "NOMENCLATURA", "LOCAL"]
+    for col in text_cols:
+        df[col] = df[col].astype(str).fillna("").str.strip()
+
+    df["CICLO_1_PASAJEROS"] = df["ALQUILER_VAR_PASAJEROS"].clip(lower=0)
+    df["CICLO_2_VENTAS"] = (df["ALQUILER_VAR_VENTAS"] - df["ALQUILER_VAR_PASAJEROS"]).clip(lower=0)
+    df["TOTAL_COBRO_CALCULADO"] = df["CICLO_1_PASAJEROS"] + df["CICLO_2_VENTAS"]
+    df["TOTAL_COBRO_MAXIMO"] = df[["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS"]].max(axis=1)
+    df["DIF_VENTAS_VS_PASAJEROS"] = df["ALQUILER_VAR_VENTAS"] - df["ALQUILER_VAR_PASAJEROS"]
+    df["VENTAS_SUPERA_PASAJEROS"] = df["ALQUILER_VAR_VENTAS"] > df["ALQUILER_VAR_PASAJEROS"]
+
+    df["VALIDA_ALQ_VENTAS"] = np.isclose(
+        df["ALQUILER_VAR_VENTAS"],
+        df["TASA_VENTAS"] * df["VENTA_REPORTADA"],
+        rtol=1e-05,
+        atol=1,
+    )
+    df["VALIDA_ALQ_PASAJEROS"] = np.isclose(
+        df["ALQUILER_VAR_PASAJEROS"],
+        df["TASA_PASAJEROS"] * df["PASAJEROS"],
+        rtol=1e-05,
+        atol=1,
+    )
+    df["VALIDA_FACTURADO_VARIABLE"] = np.isclose(
+        df["FACTURADO_VARIABLE"],
+        df["ALQUILER_VAR_VENTAS"] - df["ALQUILER_VAR_PASAJEROS"],
+        rtol=1e-05,
+        atol=1,
+    )
+    df["VALIDA_TOTAL_COBRO"] = np.isclose(
+        df["TOTAL_COBRO_CALCULADO"],
+        df["TOTAL_COBRO_MAXIMO"],
+        rtol=1e-05,
+        atol=1,
+    )
+
+    meses_es = {
+        1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
+        7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+    }
+    df["PERIODO_NUM_MES"] = df["PERIODO_MES"].dt.month
+    df["PERIODO_ANIO"] = df["PERIODO_MES"].dt.year
+    df["MES_NOMBRE"] = df["PERIODO_NUM_MES"].map(meses_es)
+    df["PERIODO_LABEL"] = df["MES_NOMBRE"] + " " + df["PERIODO_ANIO"].astype(str)
+    return df
+
+
+def build_download(df: pd.DataFrame) -> bytes:
+    export_cols = [
+        "PERIODO_LABEL",
+        "CONTRATO",
+        "INQUILINO",
+        "NOMENCLATURA",
+        "LOCAL",
+        "ACUERDO_VENTAS",
+        "ACUERDO_IMMG",
+        "TASA_VENTAS",
+        "VENTA_REPORTADA",
+        "ALQUILER_VAR_VENTAS",
+        "TASA_PASAJEROS",
+        "PASAJEROS",
+        "ALQUILER_VAR_PASAJEROS",
+        "FACTURADO_VARIABLE",
+        "CICLO_1_PASAJEROS",
+        "CICLO_2_VENTAS",
+        "TOTAL_COBRO_CALCULADO",
+        "VALIDA_ALQ_VENTAS",
+        "VALIDA_ALQ_PASAJEROS",
+        "VALIDA_FACTURADO_VARIABLE",
+        "VALIDA_TOTAL_COBRO",
+    ]
+    output = io.StringIO()
+    df[export_cols].to_csv(output, index=False)
+    return output.getvalue().encode("utf-8")
+
+
+def style_plot(fig):
+    fig.update_layout(
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(family='"Neo Sans Pro", "Helvetica Neue LT Std", Arial, sans-serif', color=COLORS["black"]),
+        legend_title_text="",
+        margin=dict(l=20, r=20, t=50, b=20),
+    )
+    fig.update_xaxes(showgrid=False)
+    fig.update_yaxes(gridcolor="rgba(18,40,76,0.10)")
+    if getattr(fig.layout.xaxis.title, "text", None) == "PERIODO_LABEL":
+        fig.update_xaxes(title_text="Periodo")
+    if getattr(fig.layout.yaxis.title, "text", None) == "PERIODO_LABEL":
+        fig.update_yaxes(title_text="Periodo")
+    for trace in getattr(fig, "data", []):
+        if getattr(trace, "name", None) == "CICLO_1_PASAJEROS":
+            trace.name = "Ciclo 2"
+        elif getattr(trace, "name", None) == "CICLO_2_VENTAS":
+            trace.name = "Ciclo 3"
+        elif getattr(trace, "name", None) == "ALQUILER_VAR_PASAJEROS":
+            trace.name = "Cobro por pasajeros"
+        elif getattr(trace, "name", None) == "ALQUILER_VAR_VENTAS":
+            trace.name = "Cobro por ventas"
+        elif getattr(trace, "name", None) == "TOTAL_COBRO_CALCULADO":
+            trace.name = "Total cobrado"
+    return fig
+
+
+def render_info_card(title: str, value: str, subtitle: str = ""):
+    st.markdown(
+        f"""
+        <div class="mini-card">
+            <div class="kicker">{title}</div>
+            <div class="value">{value}</div>
+            <div class="sub">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def classify_variation(delta_pct: float) -> tuple[str, str, str]:
+    if pd.isna(delta_pct):
+        return "Sin base comparable", "delta-neutral", "•"
+    if delta_pct >= 0:
+        return "Crecimiento", "delta-positive", "▲"
+    if delta_pct > -10:
+        return "Caída leve", "delta-warning", "▼"
+    return "Caída fuerte", "delta-negative", "▼"
+
+
+def render_variation_card(title: str, value: str, badge_text: str, badge_class: str, subtitle: str = ""):
+    st.markdown(
+        f"""
+        <div class="delta-card">
+            <div class="kicker">{title}</div>
+            <div class="value">{value}</div>
+            <div class="delta-pill {badge_class}">{badge_text}</div>
+            <div class="sub">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_month_filter(data: pd.DataFrame, label: str, key: str) -> pd.DataFrame:
+    month_options = (
+        data[["PERIODO_MES", "PERIODO_LABEL"]]
+        .drop_duplicates()
+        .sort_values("PERIODO_MES")["PERIODO_LABEL"]
+        .tolist()
+    )
+
+    if not month_options:
+        return data.iloc[0:0].copy()
+
+    selected_months = st.multiselect(
+        label,
+        options=month_options,
+        default=month_options,
+        key=key,
+    )
+
+    if not selected_months:
+        return data.iloc[0:0].copy()
+
+    return data[data["PERIODO_LABEL"].isin(selected_months)].copy()
+
+
+def render_same_month_comparison(data: pd.DataFrame, section_key: str, title: str) -> pd.DataFrame:
+    st.markdown(f'<div class="section-label">{title}</div>', unsafe_allow_html=True)
+
+    if data.empty:
+        st.info("No hay datos disponibles para comparar.")
+        return data.iloc[0:0].copy()
+
+    month_order = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ]
+    month_options = [m for m in month_order if m in data["MES_NOMBRE"].dropna().unique().tolist()]
+    year_options = sorted(data["PERIODO_ANIO"].dropna().astype(int).unique().tolist())
+
+    c1, c2 = st.columns([1, 1.3])
+    with c1:
+        selected_month_name = st.selectbox(
+            "Mes a comparar",
+            options=month_options,
+            key=f"{section_key}_compare_month",
+        )
+    with c2:
+        default_years = year_options[-2:] if len(year_options) >= 2 else year_options
+        selected_years = st.multiselect(
+            "Años a comparar",
+            options=year_options,
+            default=default_years,
+            key=f"{section_key}_compare_years",
+        )
+
+    if not selected_month_name or not selected_years:
+        st.info("Selecciona al menos un mes y un año para habilitar la comparación.")
+        return data.iloc[0:0].copy()
+
+    compare_df = data[
+        (data["MES_NOMBRE"] == selected_month_name)
+        & (data["PERIODO_ANIO"].isin(selected_years))
+    ].copy()
+
+    if compare_df.empty:
+        st.warning("No hay registros para la combinación de mes y años seleccionada.")
+        return compare_df
+
+    compare_df["ANIO_LABEL"] = compare_df["PERIODO_ANIO"].astype(str)
+    return compare_df
+
+
+def compute_variation_summary(compare_summary: pd.DataFrame, metrics: List[str]) -> pd.DataFrame:
+    if compare_summary.empty or "PERIODO_ANIO" not in compare_summary.columns:
+        return pd.DataFrame()
+
+    ordered = compare_summary.sort_values("PERIODO_ANIO").reset_index(drop=True).copy()
+    if len(ordered) < 2:
+        return pd.DataFrame()
+
+    previous_row = ordered.iloc[-2]
+    current_row = ordered.iloc[-1]
+
+    results = []
+    for metric in metrics:
+        previous_value = float(previous_row.get(metric, 0))
+        current_value = float(current_row.get(metric, 0))
+        absolute_change = current_value - previous_value
+        pct_change = (absolute_change / previous_value * 100) if previous_value != 0 else np.nan
+        results.append(
+            {
+                "Indicador": metric,
+                "Año base": int(previous_row["PERIODO_ANIO"]),
+                "Año comparado": int(current_row["PERIODO_ANIO"]),
+                "Valor base": previous_value,
+                "Valor comparado": current_value,
+                "Variación absoluta": absolute_change,
+                "Variación %": pct_change,
+            }
+        )
+
+    return pd.DataFrame(results)
+
+
+def render_variation_cards(variation_df: pd.DataFrame, labels_map: dict, section_title: str):
+    st.markdown(f'<div class="section-label">{section_title}</div>', unsafe_allow_html=True)
+
+    if variation_df.empty:
+        st.info("Se requieren al menos dos años para calcular la variación frente al periodo anterior.")
+        return
+
+    metric_cols = st.columns(len(variation_df))
+    for idx, (_, row) in enumerate(variation_df.iterrows()):
+        label = labels_map.get(row["Indicador"], row["Indicador"])
+        delta_abs = row["Variación absoluta"]
+        delta_pct = row["Variación %"]
+        status_text, badge_class, arrow = classify_variation(delta_pct)
+
+        pct_text = "Sin base comparable" if pd.isna(delta_pct) else f"{arrow} {delta_pct:+.1f}%"
+        badge_text = status_text if pd.isna(delta_pct) else f"{status_text} | {pct_text}"
+        subtitle = (
+            f"{int(row['Año comparado'])} vs {int(row['Año base'])} | Variación absoluta: {format_metric_delta(delta_abs, row['Indicador'])}"
+            if not pd.isna(delta_pct)
+            else f"{int(row['Año comparado'])} vs {int(row['Año base'])} | base del año anterior en cero"
+        )
+        with metric_cols[idx]:
+            render_variation_card(
+                label,
+                format_metric_value(row["Valor comparado"], row["Indicador"]),
+                badge_text,
+                badge_class,
+                subtitle,
+            )
+
+
+def build_variation_display_table(variation_df: pd.DataFrame, labels_map: dict) -> pd.DataFrame:
+    if variation_df.empty:
+        return variation_df
+
+    display = variation_df.copy()
+    display["Semáforo"] = display["Variación %"].map(lambda x: classify_variation(x)[0])
+    display["Indicador"] = display["Indicador"].map(lambda x: labels_map.get(x, x))
+    display["Valor base"] = display.apply(lambda row: format_metric_value(row["Valor base"], row["Indicador"]), axis=1)
+    display["Valor comparado"] = display.apply(lambda row: format_metric_value(row["Valor comparado"], row["Indicador"]), axis=1)
+    display["Variación absoluta"] = display.apply(lambda row: format_metric_delta(row["Variación absoluta"], row["Indicador"]), axis=1)
+    display["Variación %"] = display["Variación %"].map(
+        lambda x: "Sin base comparable" if pd.isna(x) else f"{x:+.1f}%"
+    )
+    return display[[
+        "Indicador",
+        "Año base",
+        "Año comparado",
+        "Valor base",
+        "Valor comparado",
+        "Variación absoluta",
+        "Variación %",
+        "Semáforo",
+    ]]
+
+
+st.markdown(
+    """
+    <div class="main-title">
+        <h1>Dashboard de Cobro Variable a Inquilinos</h1>
+        <p>Visualización de ciclo 2 (pasajeros) y ciclo 3 (ventas) con validación de acuerdos y comportamiento mensual.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.expander("📘 Lógica de negocio aplicada", expanded=False):
+    st.markdown(
+        """
+        - **Ciclo 2:** se cobra siempre el valor de **ALQUILER_VAR_PASAJEROS**.
+        - **Ciclo 3:** solo se cobra cuando **ALQUILER_VAR_VENTAS > ALQUILER_VAR_PASAJEROS**.
+        - **Valor adicional ciclo 3:** `ALQUILER_VAR_VENTAS - ALQUILER_VAR_PASAJEROS`.
+        - **Total cobrado al inquilino:** `máximo(ALQUILER_VAR_VENTAS, ALQUILER_VAR_PASAJEROS)`.
+        """
+    )
+
+st.sidebar.header("Carga y filtros")
+uploaded_file = st.sidebar.file_uploader("Sube el archivo CSV", type=["csv"])
+
+st.sidebar.markdown(
+    """
+    <div class="small">
+    Tipografía declarada en CSS: <b>Neo Sans Pro</b> y <b>Helvetica Neue LT Std</b>.<br>
+    Si el equipo no las tiene instaladas, el navegador usará una fuente de respaldo similar.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if uploaded_file is None:
+    st.info("Carga un archivo CSV con la estructura indicada para habilitar el dashboard.")
+    st.stop()
+
+try:
+    df = load_data(uploaded_file)
+except Exception as e:
+    st.error(f"No fue posible procesar el archivo: {e}")
+    st.stop()
+
+periodos = (
+    df[["PERIODO_MES", "PERIODO_LABEL"]]
+    .drop_duplicates()
+    .sort_values("PERIODO_MES")["PERIODO_LABEL"]
+    .tolist()
+)
+inquilinos = sorted(df["INQUILINO"].dropna().unique().tolist())
+locales = sorted(df["LOCAL"].dropna().unique().tolist())
+nomenclaturas = sorted(df["NOMENCLATURA"].dropna().unique().tolist())
+
+selected_periodos = st.sidebar.multiselect("Periodo mes", options=periodos, default=periodos)
+selected_inquilinos = st.sidebar.multiselect("Inquilino", options=inquilinos, default=inquilinos)
+selected_locales = st.sidebar.multiselect("Local", options=locales, default=locales)
+selected_nomenclaturas = st.sidebar.multiselect("Nomenclatura", options=nomenclaturas, default=nomenclaturas)
+
+filtered = df[
+    df["PERIODO_LABEL"].isin(selected_periodos)
+    & df["INQUILINO"].isin(selected_inquilinos)
+    & df["LOCAL"].isin(selected_locales)
+    & df["NOMENCLATURA"].isin(selected_nomenclaturas)
+].copy()
+
+if filtered.empty:
+    st.warning("No hay datos con los filtros seleccionados.")
+    st.stop()
+
+total_ciclo_2 = filtered["CICLO_1_PASAJEROS"].sum()
+total_ciclo_3 = filtered["CICLO_2_VENTAS"].sum()
+total_cobrado = filtered["TOTAL_COBRO_CALCULADO"].sum()
+inquilinos_count = filtered["INQUILINO"].nunique()
+contratos_count = filtered["CONTRATO"].nunique()
+
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("Cobro ciclo 2", format_currency(total_ciclo_2))
+col2.metric("Cobro ciclo 3", format_currency(total_ciclo_3))
+col3.metric("Total cobrado", format_currency(total_cobrado))
+col4.metric("Inquilinos", format_number(inquilinos_count))
+col5.metric("Contratos", format_number(contratos_count))
+
+st.markdown(
+    """
+    <div class="note">
+        El total cobrado se interpreta como el mayor valor entre <b>ALQUILER_VAR_PASAJEROS</b> y <b>ALQUILER_VAR_VENTAS</b>.
+        En términos operativos: <b>ciclo 2</b> asegura el mínimo por pasajeros y <b>ciclo 3</b> recauda el excedente cuando el componente por ventas es superior.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+monthly = (
+    filtered.groupby(["PERIODO_MES", "PERIODO_LABEL"], as_index=False)[
+        ["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO", "ALQUILER_VAR_VENTAS", "ALQUILER_VAR_PASAJEROS"]
+    ]
+    .sum()
+    .sort_values("PERIODO_MES")
+)
+
+top_inquilinos = (
+    filtered.groupby(["INQUILINO", "ACUERDO_VENTAS", "ACUERDO_IMMG"], dropna=False, as_index=False)[
+        ["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO", "ALQUILER_VAR_VENTAS", "ALQUILER_VAR_PASAJEROS"]
+    ]
+    .sum()
+    .sort_values("TOTAL_COBRO_CALCULADO", ascending=False)
+)
+
+cliente_options = sorted(filtered["INQUILINO"].dropna().unique().tolist())
+default_cliente = cliente_options[0] if cliente_options else None
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Resumen general",
+    "Estadísticas por cliente",
+    "Consolidado por inquilino",
+    "Validaciones",
+    "Detalle",
+])
+
+with tab1:
+    st.markdown('<div class="section-label">Filtro mensual del resumen</div>', unsafe_allow_html=True)
+    tab1_filtered = render_month_filter(filtered, "Meses a visualizar en resumen general", "tab1_months")
+
+    if tab1_filtered.empty:
+        st.warning("No hay datos para los meses seleccionados en esta sección.")
+    else:
+        monthly_tab1 = (
+            tab1_filtered.groupby(["PERIODO_MES", "PERIODO_LABEL"], as_index=False)[
+                ["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO", "ALQUILER_VAR_VENTAS", "ALQUILER_VAR_PASAJEROS"]
+            ]
+            .sum()
+            .sort_values("PERIODO_MES")
+        )
+
+        c1, c2 = st.columns([1.25, 1])
+        with c1:
+            bar_df = monthly_tab1.melt(
+                id_vars="PERIODO_LABEL",
+                value_vars=["CICLO_1_PASAJEROS", "CICLO_2_VENTAS"],
+                var_name="COMPONENTE",
+                value_name="VALOR",
+            )
+            bar_df["COMPONENTE"] = bar_df["COMPONENTE"].replace(
+                {"CICLO_1_PASAJEROS": "Ciclo 2 - Pasajeros", "CICLO_2_VENTAS": "Ciclo 3 - Ventas"}
+            )
+            fig = px.bar(
+                bar_df,
+                x="PERIODO_LABEL",
+                y="VALOR",
+                color="COMPONENTE",
+                barmode="stack",
+                title="Cobro mensual por componente",
+                labels={"PERIODO_LABEL": "Periodo", "VALOR": "Valor", "COMPONENTE": "Componente"},
+                color_discrete_map={
+                    "Ciclo 2 - Pasajeros": COLORS["navy"],
+                    "Ciclo 3 - Ventas": COLORS["gold"],
+                },
+            )
+            st.plotly_chart(style_plot(fig), use_container_width=True)
+
+        with c2:
+            fig2 = px.line(
+                monthly_tab1,
+                x="PERIODO_LABEL",
+                y=["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS", "TOTAL_COBRO_CALCULADO"],
+                markers=True,
+                title="Comparativo mensual: base pasajeros vs ventas vs cobro final",
+                labels={"PERIODO_LABEL": "Periodo", "value": "Valor", "variable": "Componente"},
+                color_discrete_map={
+                    "ALQUILER_VAR_PASAJEROS": COLORS["blue_gray"],
+                    "ALQUILER_VAR_VENTAS": COLORS["gold"],
+                    "TOTAL_COBRO_CALCULADO": COLORS["black"],
+                },
+            )
+            st.plotly_chart(style_plot(fig2), use_container_width=True)
+
+        compare_tab1 = render_same_month_comparison(
+            tab1_filtered,
+            "tab1",
+            "Comparativa del mismo mes entre años"
+        )
+
+        if not compare_tab1.empty:
+            compare_summary_tab1 = (
+                compare_tab1.groupby(["PERIODO_ANIO", "ANIO_LABEL"], as_index=False)[
+                    ["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO", "ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS"]
+                ]
+                .sum()
+                .sort_values("PERIODO_ANIO")
+            )
+
+            g1, g2 = st.columns([1.1, 1])
+            with g1:
+                compare_melt = compare_summary_tab1.melt(
+                    id_vars="ANIO_LABEL",
+                    value_vars=["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO"],
+                    var_name="COMPONENTE",
+                    value_name="VALOR",
+                )
+                compare_melt["COMPONENTE"] = compare_melt["COMPONENTE"].replace(
+                    {
+                        "CICLO_1_PASAJEROS": "Ciclo 2",
+                        "CICLO_2_VENTAS": "Ciclo 3",
+                        "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                    }
+                )
+                fig_compare_1 = px.bar(
+                    compare_melt,
+                    x="ANIO_LABEL",
+                    y="VALOR",
+                    color="COMPONENTE",
+                    barmode="group",
+                    title="Comparativo por año del mismo mes seleccionado",
+                    labels={"ANIO_LABEL": "Año", "VALOR": "Valor", "COMPONENTE": "Componente"},
+                    color_discrete_map={
+                        "Ciclo 2": COLORS["navy"],
+                        "Ciclo 3": COLORS["gold"],
+                        "Total cobrado": COLORS["black"],
+                    },
+                )
+                st.plotly_chart(style_plot(fig_compare_1), use_container_width=True)
+
+            with g2:
+                fig_compare_2 = px.line(
+                    compare_summary_tab1,
+                    x="ANIO_LABEL",
+                    y=["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS", "TOTAL_COBRO_CALCULADO"],
+                    markers=True,
+                    title="Base pasajeros vs ventas vs cobro final por año",
+                    labels={"ANIO_LABEL": "Año", "value": "Valor", "variable": "Componente"},
+                    color_discrete_map={
+                        "ALQUILER_VAR_PASAJEROS": COLORS["blue_gray"],
+                        "ALQUILER_VAR_VENTAS": COLORS["gold"],
+                        "TOTAL_COBRO_CALCULADO": COLORS["black"],
+                    },
+                )
+                st.plotly_chart(style_plot(fig_compare_2), use_container_width=True)
+
+            compare_labels_tab1 = {
+                "CICLO_1_PASAJEROS": "Ciclo 2",
+                "CICLO_2_VENTAS": "Ciclo 3",
+                "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                "ALQUILER_VAR_PASAJEROS": "Cobro pasajeros",
+                "ALQUILER_VAR_VENTAS": "Cobro ventas",
+            }
+            variation_tab1 = compute_variation_summary(
+                compare_summary_tab1,
+                list(compare_labels_tab1.keys()),
+            )
+            render_variation_cards(
+                variation_tab1,
+                compare_labels_tab1,
+                "Variación automática frente al año anterior seleccionado",
+            )
+
+            compare_table_tab1 = compare_summary_tab1.rename(
+                columns={
+                    "ANIO_LABEL": "Año",
+                    "CICLO_1_PASAJEROS": "Ciclo 2",
+                    "CICLO_2_VENTAS": "Ciclo 3",
+                    "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                    "ALQUILER_VAR_PASAJEROS": "Cobro pasajeros",
+                    "ALQUILER_VAR_VENTAS": "Cobro ventas",
+                }
+            )
+            st.dataframe(compare_table_tab1, use_container_width=True, hide_index=True)
+
+            variation_display_tab1 = build_variation_display_table(variation_tab1, compare_labels_tab1)
+            if isinstance(variation_display_tab1, pd.DataFrame) and not variation_display_tab1.empty:
+                st.dataframe(variation_display_tab1, use_container_width=True, hide_index=True)
+
+with tab2:
+    st.markdown('<div class="section-label">Análisis mensual por cliente</div>', unsafe_allow_html=True)
+    variation_display_cliente = pd.DataFrame()
+
+    selected_cliente_tab = st.selectbox(
+        "Filtrar por inquilino",
+        options=cliente_options,
+        index=0 if default_cliente else None,
+        key="cliente_tab_filter",
+    )
+
+    cliente_df = filtered[filtered["INQUILINO"] == selected_cliente_tab].copy() if selected_cliente_tab else filtered.iloc[0:0].copy()
+    cliente_df = render_month_filter(cliente_df, "Meses a visualizar para el cliente", "tab2_months")
+
+    cliente_monthly = (
+        cliente_df.groupby(["PERIODO_MES", "PERIODO_LABEL"], as_index=False)[
+            [
+                "ALQUILER_VAR_PASAJEROS",
+                "ALQUILER_VAR_VENTAS",
+                "CICLO_1_PASAJEROS",
+                "CICLO_2_VENTAS",
+                "TOTAL_COBRO_CALCULADO",
+                "VENTA_REPORTADA",
+                "PASAJEROS",
+            ]
+        ]
+        .sum()
+        .sort_values("PERIODO_MES")
+    )
+
+    cliente_profile = {}
+    if not cliente_df.empty:
+        acuerdo_ventas_vals = sorted(cliente_df["ACUERDO_VENTAS"].dropna().astype(int).astype(str).unique().tolist())
+        acuerdo_immg_vals = sorted(cliente_df["ACUERDO_IMMG"].dropna().astype(int).astype(str).unique().tolist())
+        contratos_vals = sorted(cliente_df["CONTRATO"].dropna().astype(str).unique().tolist())
+        locales_vals = sorted(cliente_df["LOCAL"].dropna().astype(str).unique().tolist())
+        nom_vals = sorted(cliente_df["NOMENCLATURA"].dropna().astype(str).unique().tolist())
+
+        cliente_profile = {
+            "acuerdo_ventas": ", ".join(acuerdo_ventas_vals) if acuerdo_ventas_vals else "Sin dato",
+            "acuerdo_immg": ", ".join(acuerdo_immg_vals) if acuerdo_immg_vals else "Sin dato",
+            "contratos": ", ".join(contratos_vals[:4]) + (" ..." if len(contratos_vals) > 4 else ""),
+            "locales": ", ".join(locales_vals[:5]) + (" ..." if len(locales_vals) > 5 else ""),
+            "nomenclaturas": ", ".join(nom_vals[:3]) + (" ..." if len(nom_vals) > 3 else ""),
+            "meses": cliente_df["PERIODO_LABEL"].nunique(),
+            "total_cobrado": cliente_df["TOTAL_COBRO_CALCULADO"].sum(),
+            "total_pasajeros": cliente_df["ALQUILER_VAR_PASAJEROS"].sum(),
+            "total_ventas": cliente_df["ALQUILER_VAR_VENTAS"].sum(),
+            "meses_con_ciclo_3": int(cliente_df["VENTAS_SUPERA_PASAJEROS"].sum()),
+        }
+
+    if cliente_df.empty:
+        st.warning("No hay información disponible para el cliente seleccionado con los filtros actuales.")
+    else:
+        info_cols = st.columns(4)
+        with info_cols[0]:
+            render_info_card("Cliente", selected_cliente_tab, f"Meses analizados: {cliente_profile['meses']}")
+        with info_cols[1]:
+            render_info_card("Acuerdo ventas", cliente_profile["acuerdo_ventas"], "Código(s) asociado(s) al cobro por ventas")
+        with info_cols[2]:
+            render_info_card("Acuerdo IMMG", cliente_profile["acuerdo_immg"], "Código(s) asociado(s) al cobro por pasajeros")
+        with info_cols[3]:
+            render_info_card("Locales", cliente_profile["locales"], cliente_profile["nomenclaturas"])
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Cobro total del cliente", format_currency(cliente_profile["total_cobrado"]))
+        k2.metric("Cobro acumulado por pasajeros", format_currency(cliente_profile["total_pasajeros"]))
+        k3.metric("Cobro acumulado por ventas", format_currency(cliente_profile["total_ventas"]))
+        k4.metric("Meses con ciclo 3", format_number(cliente_profile["meses_con_ciclo_3"]))
+
+        g1, g2 = st.columns([1.2, 1])
+        with g1:
+            cliente_melt = cliente_monthly.melt(
+                id_vars="PERIODO_LABEL",
+                value_vars=["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS"],
+                var_name="TIPO_COBRO",
+                value_name="VALOR",
+            )
+            cliente_melt["TIPO_COBRO"] = cliente_melt["TIPO_COBRO"].replace(
+                {
+                    "ALQUILER_VAR_PASAJEROS": "Cobro por pasajeros",
+                    "ALQUILER_VAR_VENTAS": "Cobro por ventas",
+                }
+            )
+            fig_cliente = px.bar(
+                cliente_melt,
+                x="PERIODO_LABEL",
+                y="VALOR",
+                color="TIPO_COBRO",
+                barmode="group",
+                title=f"Cobros mes a mes de {selected_cliente_tab}",
+                labels={"PERIODO_LABEL": "Periodo", "VALOR": "Valor", "TIPO_COBRO": "Tipo de cobro"},
+                color_discrete_map={
+                    "Cobro por pasajeros": COLORS["blue_gray"],
+                    "Cobro por ventas": COLORS["gold"],
+                },
+            )
+            st.plotly_chart(style_plot(fig_cliente), use_container_width=True)
+
+        with g2:
+            fig_total_cliente = px.line(
+                cliente_monthly,
+                x="PERIODO_LABEL",
+                y=["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO"],
+                markers=True,
+                title="Ciclo 2, ciclo 3 y total cobrado",
+                labels={"PERIODO_LABEL": "Periodo", "value": "Valor", "variable": "Componente"},
+                color_discrete_map={
+                    "CICLO_1_PASAJEROS": COLORS["navy"],
+                    "CICLO_2_VENTAS": COLORS["gold"],
+                    "TOTAL_COBRO_CALCULADO": COLORS["black"],
+                },
+            )
+            st.plotly_chart(style_plot(fig_total_cliente), use_container_width=True)
+
+        g3, g4 = st.columns([1, 1])
+        with g3:
+            fig_pasajeros = px.bar(
+                cliente_monthly,
+                x="PERIODO_LABEL",
+                y="PASAJEROS",
+                title="Número de pasajeros por mes",
+                labels={"PERIODO_LABEL": "Periodo", "PASAJEROS": "Pasajeros"},
+                color_discrete_sequence=[COLORS["navy"]],
+            )
+            st.plotly_chart(style_plot(fig_pasajeros), use_container_width=True)
+
+        with g4:
+            cliente_monthly["DIFERENCIA_VENTAS_MENOS_PASAJEROS"] = (
+                cliente_monthly["ALQUILER_VAR_VENTAS"] - cliente_monthly["ALQUILER_VAR_PASAJEROS"]
+            )
+            fig_dif = px.bar(
+                cliente_monthly,
+                x="PERIODO_LABEL",
+                y="DIFERENCIA_VENTAS_MENOS_PASAJEROS",
+                title="Diferencia mensual: ventas - pasajeros",
+                labels={"PERIODO_LABEL": "Periodo", "DIFERENCIA_VENTAS_MENOS_PASAJEROS": "Diferencia ventas - pasajeros"},
+                color_discrete_sequence=[COLORS["gold"]],
+            )
+            st.plotly_chart(style_plot(fig_dif), use_container_width=True)
+
+        st.markdown('<div class="section-label">Detalle mensual del cliente</div>', unsafe_allow_html=True)
+        cliente_table = cliente_monthly.copy()
+        cliente_table.insert(1, "INQUILINO", selected_cliente_tab)
+        cliente_table["ACUERDO_VENTAS"] = cliente_profile["acuerdo_ventas"]
+        cliente_table["ACUERDO_IMMG"] = cliente_profile["acuerdo_immg"]
+        cliente_table = cliente_table.rename(
+            columns={
+                "PERIODO_LABEL": "Periodo",
+                "ALQUILER_VAR_PASAJEROS": "Cobro pasajeros",
+                "ALQUILER_VAR_VENTAS": "Cobro ventas",
+                "CICLO_1_PASAJEROS": "Ciclo 2",
+                "CICLO_2_VENTAS": "Ciclo 3",
+                "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                "VENTA_REPORTADA": "Venta reportada",
+                "PASAJEROS": "Pasajeros",
+                "ACUERDO_VENTAS": "Acuerdo ventas",
+                "ACUERDO_IMMG": "Acuerdo IMMG",
+            }
+        )
+        st.dataframe(cliente_table, use_container_width=True, hide_index=True)
+        compare_cliente = render_same_month_comparison(
+            cliente_df,
+            "tab2_cliente",
+            "Comparativa del mismo mes entre años para este cliente"
+        )
+
+        if not compare_cliente.empty:
+            compare_cliente_summary = (
+                compare_cliente.groupby(["PERIODO_ANIO", "ANIO_LABEL"], as_index=False)[
+                    ["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO", "PASAJEROS", "VENTA_REPORTADA"]
+                ]
+                .sum()
+                .sort_values("PERIODO_ANIO")
+            )
+
+            h1, h2 = st.columns([1.1, 1])
+            with h1:
+                cliente_compare_melt = compare_cliente_summary.melt(
+                    id_vars="ANIO_LABEL",
+                    value_vars=["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO"],
+                    var_name="COMPONENTE",
+                    value_name="VALOR",
+                )
+                cliente_compare_melt["COMPONENTE"] = cliente_compare_melt["COMPONENTE"].replace(
+                    {
+                        "CICLO_1_PASAJEROS": "Ciclo 2",
+                        "CICLO_2_VENTAS": "Ciclo 3",
+                        "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                    }
+                )
+                fig_compare_cliente_1 = px.bar(
+                    cliente_compare_melt,
+                    x="ANIO_LABEL",
+                    y="VALOR",
+                    color="COMPONENTE",
+                    barmode="group",
+                    title=f"Comparativo anual del mismo mes para {selected_cliente_tab}",
+                    labels={"ANIO_LABEL": "Año", "VALOR": "Valor", "COMPONENTE": "Componente"},
+                    color_discrete_map={
+                        "Ciclo 2": COLORS["navy"],
+                        "Ciclo 3": COLORS["gold"],
+                        "Total cobrado": COLORS["black"],
+                    },
+                )
+                st.plotly_chart(style_plot(fig_compare_cliente_1), use_container_width=True)
+
+            with h2:
+                fig_compare_cliente_2 = px.line(
+                    compare_cliente_summary,
+                    x="ANIO_LABEL",
+                    y=["PASAJEROS", "VENTA_REPORTADA"],
+                    markers=True,
+                    title="Pasajeros y venta reportada por año",
+                    labels={"ANIO_LABEL": "Año", "value": "Valor", "variable": "Indicador"},
+                    color_discrete_map={
+                        "PASAJEROS": COLORS["navy"],
+                        "VENTA_REPORTADA": COLORS["gold"],
+                    },
+                )
+                st.plotly_chart(style_plot(fig_compare_cliente_2), use_container_width=True)
+
+            compare_labels_cliente = {
+                "CICLO_1_PASAJEROS": "Ciclo 2",
+                "CICLO_2_VENTAS": "Ciclo 3",
+                "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                "PASAJEROS": "Pasajeros",
+                "VENTA_REPORTADA": "Venta reportada",
+            }
+            variation_cliente = compute_variation_summary(
+                compare_cliente_summary,
+                list(compare_labels_cliente.keys()),
+            )
+            render_variation_cards(
+                variation_cliente,
+                compare_labels_cliente,
+                f"Variación automática para {selected_cliente_tab} frente al año anterior seleccionado",
+            )
+
+            compare_cliente_table = compare_cliente_summary.rename(
+                columns={
+                    "ANIO_LABEL": "Año",
+                    "CICLO_1_PASAJEROS": "Ciclo 2",
+                    "CICLO_2_VENTAS": "Ciclo 3",
+                    "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                    "PASAJEROS": "Pasajeros",
+                    "VENTA_REPORTADA": "Venta reportada",
+                }
+            )
+            st.dataframe(compare_cliente_table, use_container_width=True, hide_index=True)
+
+            variation_display_cliente = build_variation_display_table(variation_cliente, compare_labels_cliente)
+            if isinstance(variation_display_cliente, pd.DataFrame) and not variation_display_cliente.empty:
+                st.dataframe(variation_display_cliente, use_container_width=True, hide_index=True)
+
+with tab3:
+    st.markdown('<div class="section-label">Consolidado y ranking por inquilino</div>', unsafe_allow_html=True)
+    tab3_filtered = render_month_filter(filtered, "Meses a visualizar en consolidado", "tab3_months")
+
+    if tab3_filtered.empty:
+        st.warning("No hay datos para los meses seleccionados en esta sección.")
+    else:
+        top_inquilinos_tab3 = (
+            tab3_filtered.groupby(["INQUILINO", "ACUERDO_VENTAS", "ACUERDO_IMMG"], dropna=False, as_index=False)[
+                ["CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO", "ALQUILER_VAR_VENTAS", "ALQUILER_VAR_PASAJEROS"]
+            ]
+            .sum()
+            .sort_values("TOTAL_COBRO_CALCULADO", ascending=False)
+        )
+
+        slider_max = max(5, min(30, len(top_inquilinos_tab3)))
+        slider_default = min(10, slider_max)
+
+        top_n = st.slider(
+            "Cantidad de inquilinos a visualizar",
+            min_value=5,
+            max_value=slider_max,
+            value=slider_default,
+            key="ranking_inquilinos",
+        )
+        top_view = top_inquilinos_tab3.head(top_n).copy()
+
+        fig6 = px.bar(
+            top_view,
+            x="TOTAL_COBRO_CALCULADO",
+            y="INQUILINO",
+            color="INQUILINO",
+            orientation="h",
+            title="Ranking de inquilinos por cobro total",
+            labels={"TOTAL_COBRO_CALCULADO": "Total cobrado", "INQUILINO": "Inquilino"},
+        )
+        fig6.update_layout(showlegend=False)
+        st.plotly_chart(style_plot(fig6), use_container_width=True)
+
+        fig7_df = top_view.melt(
+            id_vars=["INQUILINO"],
+            value_vars=["ALQUILER_VAR_PASAJEROS", "ALQUILER_VAR_VENTAS"],
+            var_name="COMPONENTE",
+            value_name="VALOR",
+        )
+        fig7_df["COMPONENTE"] = fig7_df["COMPONENTE"].replace(
+            {
+                "ALQUILER_VAR_PASAJEROS": "Base pasajeros",
+                "ALQUILER_VAR_VENTAS": "Valor ventas",
+            }
+        )
+        fig7 = px.bar(
+            fig7_df,
+            x="INQUILINO",
+            y="VALOR",
+            color="COMPONENTE",
+            barmode="group",
+            title="Comparativo base por pasajeros vs componente por ventas",
+            labels={"INQUILINO": "Inquilino", "VALOR": "Valor", "COMPONENTE": "Componente"},
+            color_discrete_map={"Base pasajeros": COLORS["blue_gray"], "Valor ventas": COLORS["gold"]},
+        )
+        st.plotly_chart(style_plot(fig7), use_container_width=True)
+
+        display_inquilinos = top_inquilinos_tab3.copy()
+        display_inquilinos["ACUERDO_VENTAS"] = display_inquilinos["ACUERDO_VENTAS"].fillna(0).astype(int).astype(str)
+        display_inquilinos["ACUERDO_IMMG"] = display_inquilinos["ACUERDO_IMMG"].fillna(0).astype(int).astype(str)
+        display_inquilinos = display_inquilinos.rename(
+            columns={
+                "INQUILINO": "Inquilino",
+                "ACUERDO_VENTAS": "Acuerdo ventas",
+                "ACUERDO_IMMG": "Acuerdo IMMG",
+                "CICLO_1_PASAJEROS": "Ciclo 2",
+                "CICLO_2_VENTAS": "Ciclo 3",
+                "TOTAL_COBRO_CALCULADO": "Total cobrado",
+                "ALQUILER_VAR_PASAJEROS": "Base pasajeros",
+                "ALQUILER_VAR_VENTAS": "Valor ventas",
+            }
+        )
+        st.dataframe(display_inquilinos, use_container_width=True, hide_index=True)
+
+with tab4:
+    tab4_filtered = render_month_filter(filtered, "Meses a validar", "tab4_months")
+
+    if tab4_filtered.empty:
+        st.warning("No hay datos para los meses seleccionados en esta sección.")
+    else:
+        total_rows = len(tab4_filtered)
+        ok_ventas = int(tab4_filtered["VALIDA_ALQ_VENTAS"].sum())
+        ok_pas = int(tab4_filtered["VALIDA_ALQ_PASAJEROS"].sum())
+        ok_fact = int(tab4_filtered["VALIDA_FACTURADO_VARIABLE"].sum())
+        ok_total = int(tab4_filtered["VALIDA_TOTAL_COBRO"].sum())
+
+        st.markdown('<div class="section-label">Estado de consistencia de cálculos</div>', unsafe_allow_html=True)
+
+        badge_html = f"""
+        <div class="card">
+            <span class="{'ok-badge' if ok_ventas == total_rows else 'warn-badge'}">Alquiler ventas: {ok_ventas}/{total_rows}</span>
+            <span class="{'ok-badge' if ok_pas == total_rows else 'warn-badge'}">Alquiler pasajeros: {ok_pas}/{total_rows}</span>
+            <span class="{'ok-badge' if ok_fact == total_rows else 'warn-badge'}">Facturado variable: {ok_fact}/{total_rows}</span>
+            <span class="{'ok-badge' if ok_total == total_rows else 'warn-badge'}">Total cobro: {ok_total}/{total_rows}</span>
+            <div class="small" style="margin-top:0.6rem;">
+                Estas validaciones comparan los valores reportados del archivo contra los cálculos esperados según la lógica del negocio.
+            </div>
+        </div>
+        """
+        st.markdown(badge_html, unsafe_allow_html=True)
+
+        inconsistencias = tab4_filtered[
+            ~(
+                tab4_filtered["VALIDA_ALQ_VENTAS"]
+                & tab4_filtered["VALIDA_ALQ_PASAJEROS"]
+                & tab4_filtered["VALIDA_FACTURADO_VARIABLE"]
+                & tab4_filtered["VALIDA_TOTAL_COBRO"]
+            )
+        ].copy()
+
+        if inconsistencias.empty:
+            st.success("No se encontraron inconsistencias con los filtros actuales.")
+        else:
+            cols_show = [
+                "PERIODO_LABEL", "CONTRATO", "INQUILINO", "LOCAL", "ACUERDO_VENTAS", "ACUERDO_IMMG",
+                "TASA_VENTAS", "VENTA_REPORTADA", "ALQUILER_VAR_VENTAS",
+                "TASA_PASAJEROS", "PASAJEROS", "ALQUILER_VAR_PASAJEROS",
+                "FACTURADO_VARIABLE", "CICLO_1_PASAJEROS", "CICLO_2_VENTAS", "TOTAL_COBRO_CALCULADO",
+                "VALIDA_ALQ_VENTAS", "VALIDA_ALQ_PASAJEROS", "VALIDA_FACTURADO_VARIABLE", "VALIDA_TOTAL_COBRO"
+            ]
+            st.warning("Se encontraron registros con diferencias frente a los cálculos esperados.")
+            st.dataframe(inconsistencias[cols_show], use_container_width=True, hide_index=True)
+
+with tab5:
+    st.markdown('<div class="section-label">Detalle operativo filtrado</div>', unsafe_allow_html=True)
+    detail = render_month_filter(filtered, "Meses a visualizar en el detalle", "tab5_months")
+
+    if detail.empty:
+        st.warning("No hay datos para los meses seleccionados en esta sección.")
+    else:
+        detail["ACUERDO_VENTAS"] = detail["ACUERDO_VENTAS"].fillna(0).astype(int).astype(str)
+        detail["ACUERDO_IMMG"] = detail["ACUERDO_IMMG"].fillna(0).astype(int).astype(str)
+
+        final_cols = [
+            "PERIODO_LABEL",
+            "CONTRATO",
+            "INQUILINO",
+            "NOMENCLATURA",
+            "LOCAL",
+            "ACUERDO_VENTAS",
+            "ACUERDO_IMMG",
+            "TASA_VENTAS",
+            "VENTA_REPORTADA",
+            "ALQUILER_VAR_VENTAS",
+            "TASA_PASAJEROS",
+            "PASAJEROS",
+            "ALQUILER_VAR_PASAJEROS",
+            "FACTURADO_VARIABLE",
+            "CICLO_1_PASAJEROS",
+            "CICLO_2_VENTAS",
+            "TOTAL_COBRO_CALCULADO",
+        ]
+        st.dataframe(detail[final_cols], use_container_width=True, hide_index=True)
+
+        st.download_button(
+            label="Descargar detalle procesado",
+            data=build_download(detail),
+            file_name="detalle_cobro_variable_procesado.csv",
+            mime="text/csv",
+        )
